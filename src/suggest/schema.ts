@@ -64,7 +64,6 @@ export function parseSuggestionOutput(
   }
   const tagNames = new Set(selectableTags(v).map((t) => t.name))
   const correspondentNames = new Set(v.correspondents.map((c) => c.name))
-  const inboxTagId = v.inboxTagId
   const schema = z.object({
     title: z.string().trim().min(1),
     correspondent: z
@@ -72,12 +71,7 @@ export function parseSuggestionOutput(
       .nullable()
       .refine((c) => c === null || correspondentNames.has(c), 'unknown correspondent'),
     proposed_new_correspondent: z.string().trim().min(1).nullable().optional(),
-    tags: z.array(z.string().refine((t) => {
-      // Find the tag by name
-      const tag = v.tags.find(tag => tag.name === t)
-      // Reject if not found, or if it's the inbox tag
-      return tag && tag.id !== inboxTagId
-    }, 'unknown tag')),
+    tags: z.array(z.string().refine((t) => tagNames.has(t), 'unknown tag')),
     proposed_new_tags: z.array(z.string().trim().min(1)).max(PROPOSED_TAGS_MAX).optional(),
   })
   const parsed = schema.safeParse(json)
