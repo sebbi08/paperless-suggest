@@ -1,0 +1,11 @@
+node_modules
+dist
+.git
+.superpowers
+.playwright-mcp
+eval-results
+test-results
+playwright-report
+data
+*.sqlite
+.env

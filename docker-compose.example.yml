@@ -1,0 +1,20 @@
+# Add this service to the compose project that runs Paperless-ngx,
+# so it can reach Paperless by its service name.
+services:
+  paperless-suggest:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PAPERLESS_URL: http://webserver:8000        # Paperless service name inside the compose network
+      PAPERLESS_TOKEN: change-me                  # Paperless → Profile → API Auth Token
+      LLM_BASE_URL: http://192.168.1.50:1234/v1   # LM Studio on your PC ("Serve on local network")
+      # LLM_MODEL: qwen3-14b                      # optional; default = model loaded in LM Studio
+      APP_PASSWORD: change-me
+      # AUTH_DISABLED: "true"                     # only behind an authenticating reverse proxy
+    volumes:
+      - suggest-data:/data
+
+volumes:
+  suggest-data:
