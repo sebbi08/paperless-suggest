@@ -85,6 +85,8 @@ const primaryButton =
   'flex-[2] rounded bg-blue-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 desk:flex-none desk:py-2'
 const kbd = 'ml-1 hidden font-mono text-xs opacity-70 desk:inline'
 
+const isDesktop = () => window.matchMedia?.('(min-width: 56.25rem) and (pointer: fine)').matches ?? true
+
 interface Notice {
   kind: 'modified' | 'missing' | 'failed'
   text: string
@@ -120,6 +122,7 @@ function ReviewForm({ detail, onNext, onReload }: { detail: DocumentDetail; onNe
   const regenerate = useMutation({
     mutationFn: () => api.regenerate(doc.id),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['doc', doc.id] }),
+    onError: (e) => setNotice({ kind: 'failed', text: `Regenerate failed: ${e.message}` }),
   })
 
   const submit = useCallback(() => {
@@ -132,6 +135,7 @@ function ReviewForm({ detail, onNext, onReload }: { detail: DocumentDetail; onNe
       const target = e.target instanceof Element ? e.target : null
       if (e.key === 'Enter') {
         if (target?.closest('button, a, textarea, [data-no-enter-apply]')) return
+        if (target?.closest('input, select') && !isDesktop()) return
         e.preventDefault()
         submit()
         return

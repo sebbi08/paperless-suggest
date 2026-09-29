@@ -86,6 +86,7 @@ describe('API', () => {
     const { app, paperless } = setup()
     const res = await app.request('/api/documents/100/thumb')
     expect(res.headers.get('content-type')).toBe('image/webp')
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff')
     expect(await res.text()).toBe('IMG')
     expect(paperless.fetchFile).toHaveBeenCalledWith(100, 'thumb')
   })

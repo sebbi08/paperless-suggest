@@ -48,6 +48,7 @@ export function CorrespondentPicker({ value, options, onChange }: Props) {
             NEW correspondent
             <input
               aria-label="New correspondent name"
+              data-no-enter-apply
               value={value.name}
               onChange={(e) =>
                 onChange({ kind: 'new', name: e.target.value, nearest: rankMatches(e.target.value, options) })

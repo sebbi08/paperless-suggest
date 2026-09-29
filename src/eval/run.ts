@@ -21,7 +21,7 @@ export interface EvalArgs {
   outDir: string
 }
 
-export function parseArgs(argv: string[]): EvalArgs {
+export function parseArgs(argv: string[], defaultOutDir = 'eval-results'): EvalArgs {
   const values = new Map<string, string>()
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!
@@ -34,7 +34,7 @@ export function parseArgs(argv: string[]): EvalArgs {
   if (models.length === 0) throw new Error(`--models is required.\n${USAGE}`)
   const sample = Number(values.get('sample') ?? 50)
   if (!Number.isInteger(sample) || sample <= 0) throw new Error(`--sample must be a positive integer.\n${USAGE}`)
-  return { models, sample, outDir: values.get('out') ?? 'eval-results' }
+  return { models, sample, outDir: values.get('out') ?? defaultOutDir }
 }
 
 /** Filed documents with correspondent, at least one real tag and text; round-robin across correspondents, newest first. */
@@ -127,7 +127,9 @@ export async function runEval(deps: {
 async function main(): Promise<void> {
   let args: EvalArgs
   try {
-    args = parseArgs(process.argv.slice(2))
+    const defaultOut = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'eval-results') : 'eval-results'
+    args = parseArgs(process.argv.slice(2), defaultOut)
+    mkdirSync(args.outDir, { recursive: true })
   } catch (e) {
     console.error((e as Error).message)
     process.exit(1)
@@ -153,7 +155,6 @@ async function main(): Promise<void> {
     log: (line) => console.error(line),
   })
   const generatedAt = new Date().toISOString()
-  mkdirSync(args.outDir, { recursive: true })
   const file = path.join(args.outDir, `${generatedAt.replace(/[:.]/g, '-')}.html`)
   writeFileSync(file, renderReport({ generatedAt, summaries, rows }))
   console.table(

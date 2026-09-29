@@ -80,6 +80,7 @@ export function createApp(deps: AppDeps): Hono {
         headers: {
           'Content-Type': res.headers.get('content-type') ?? 'application/octet-stream',
           'Cache-Control': 'private, max-age=300',
+          'X-Content-Type-Options': 'nosniff',
         },
       })
     })

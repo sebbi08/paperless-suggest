@@ -2,7 +2,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, ApiError } from './api'
 import { ReviewScreen } from './ReviewScreen'
 import { makeDetail, makeStatus } from './test/fixtures'
@@ -37,7 +37,34 @@ beforeEach(() => {
   mocked.regenerate.mockResolvedValue({ status: 'pending' })
 })
 
+const originalMatchMedia = window.matchMedia
+afterEach(() => {
+  window.matchMedia = originalMatchMedia
+})
+const stubMatchMedia = (matches: boolean) => {
+  window.matchMedia = (() => ({ matches, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia
+}
+
 describe('ReviewScreen', () => {
+  it('does not apply on Enter inside the title input on touch/small screens', async () => {
+    stubMatchMedia(false)
+    const user = renderScreen()
+    const title = await screen.findByDisplayValue('Telekom Rechnung 1')
+    await user.click(title)
+    await user.keyboard('{Enter}')
+    expect(mocked.apply).not.toHaveBeenCalled()
+  })
+
+  it('applies on Enter inside the title input on desktop', async () => {
+    stubMatchMedia(true)
+    const user = renderScreen()
+    const title = await screen.findByDisplayValue('Telekom Rechnung 1')
+    await user.click(title)
+    await user.keyboard('{Enter}')
+    await screen.findByDisplayValue('Telekom Rechnung 2')
+    expect(mocked.apply).toHaveBeenCalledTimes(1)
+  })
+
   it('shows the suggestion with the original title struck through', async () => {
     renderScreen()
     expect(await screen.findByDisplayValue('Telekom Rechnung 1')).toBeInTheDocument()

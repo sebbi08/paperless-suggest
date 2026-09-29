@@ -56,6 +56,7 @@ node --env-file=.env --import tsx src/eval/run.ts --models qwen3-14b,gemma-3-12b
 ```
 
 In Docker: `docker compose exec paperless-suggest node dist/eval.js --models qwen3-14b --sample 50`.
+Reports are written to `/data/eval-results` inside the data volume (`DATA_DIR/eval-results`).
 
 The HTML report in `eval-results/` shows, per model: correspondent accuracy, tag
 precision/recall/F1, **new-name rate** (how often it proposed a new tag or correspondent even

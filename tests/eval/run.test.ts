@@ -10,6 +10,11 @@ describe('parseArgs', () => {
     expect(parseArgs(['--models=a'])).toEqual({ models: ['a'], sample: 50, outDir: 'eval-results' })
   })
 
+  it('uses a custom default output dir when --out is absent', () => {
+    expect(parseArgs(['--models', 'a'], '/data/eval-results').outDir).toBe('/data/eval-results')
+    expect(parseArgs(['--models', 'a', '--out', 'x'], '/data/eval-results').outDir).toBe('x')
+  })
+
   it('requires models and a positive sample', () => {
     expect(() => parseArgs([])).toThrow(/--models/)
     expect(() => parseArgs(['--models', 'a', '--sample', '0'])).toThrow(/--sample/)
