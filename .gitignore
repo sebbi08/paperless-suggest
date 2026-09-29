@@ -1,0 +1,7 @@
+.superpowers/
+node_modules/
+dist/
+*.sqlite
+.env
+eval-results/
+.playwright-mcp/
