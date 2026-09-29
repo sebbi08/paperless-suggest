@@ -40,7 +40,7 @@ export function CorrespondentPicker({ value, options, onChange }: Props) {
         </select>
       </label>
       {value?.kind === 'existing' && value.matchedFrom && (
-        <p className="mt-1 text-xs text-gray-500">matched from "{value.matchedFrom}"</p>
+        <p className="mt-1 text-xs text-gray-500">matched from “{value.matchedFrom}”</p>
       )}
       {value?.kind === 'new' && (
         <div className="mt-2 rounded border-2 border-dashed border-amber-600 p-2">

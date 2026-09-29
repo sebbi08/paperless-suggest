@@ -50,7 +50,7 @@ export function TagEditor({ value, options, onChange }: Props) {
                   ×
                 </button>
               </span>
-              {t.matchedFrom && <span className="pl-3 text-xs text-gray-500">matched from "{t.matchedFrom}"</span>}
+              {t.matchedFrom && <span className="pl-3 text-xs text-gray-500">matched from “{t.matchedFrom}”</span>}
             </li>
           ) : (
             <li key={`n${t.name}`} className="flex max-w-full flex-col gap-1">
@@ -67,7 +67,7 @@ export function TagEditor({ value, options, onChange }: Props) {
               </span>
               {t.nearest.length > 0 && (
                 <span className="pl-3 text-xs text-amber-700">
-                  "{t.name}" doesn't exist yet. Similar:{' '}
+                  “{t.name}” doesn't exist yet. Similar:{' '}
                   {t.nearest.map((n) => (
                     <button
                       key={n.id}
@@ -126,7 +126,7 @@ export function TagEditor({ value, options, onChange }: Props) {
             {q && !exact && (
               <li>
                 <button type="button" onClick={create} className="w-full px-3 py-2 text-left text-amber-700 hover:bg-amber-50">
-                  Create new tag "{query.trim()}"
+                  Create new tag “{query.trim()}”
                 </button>
               </li>
             )}

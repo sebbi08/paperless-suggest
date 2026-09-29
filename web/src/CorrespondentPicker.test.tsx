@@ -40,7 +40,7 @@ describe('CorrespondentPicker', () => {
 
   it('shows a match note', () => {
     setup({ kind: 'existing', id: 10, matchedFrom: 'Telekom' })
-    expect(screen.getByText(/matched from "Telekom"/)).toBeInTheDocument()
+    expect(screen.getByText(/matched from “Telekom”/)).toBeInTheDocument()
   })
 
   it('creates a new correspondent and offers similar existing ones', async () => {

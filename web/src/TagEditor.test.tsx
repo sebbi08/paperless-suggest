@@ -40,7 +40,7 @@ describe('TagEditor', () => {
     expect(screen.getByText('Rechnung')).toBeInTheDocument()
     expect(screen.getByText('Müller "Bau"')).toBeInTheDocument()
     expect(screen.getByText('NEW: Mobilfunk')).toBeInTheDocument()
-    expect(screen.getByText(/matched from "Rechnungen"/)).toBeInTheDocument()
+    expect(screen.getByText(/matched from “Rechnungen”/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Use Telefon/Internet instead of Mobilfunk' })).toBeInTheDocument()
   })
 
@@ -69,7 +69,7 @@ describe('TagEditor', () => {
     const { user, last } = setup([])
     await user.click(screen.getByRole('button', { name: '+ add tag' }))
     await user.type(screen.getByLabelText('Search tags'), 'Steuer')
-    await user.click(screen.getByRole('button', { name: 'Create new tag "Steuer"' }))
+    await user.click(screen.getByRole('button', { name: 'Create new tag “Steuer”' }))
     expect(last()).toEqual([{ kind: 'new', name: 'Steuer', nearest: expect.any(Array) }])
   })
 
