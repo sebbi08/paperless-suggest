@@ -109,12 +109,19 @@ Each unit has one purpose and is testable in isolation.
 | `content_hash` | text | hash of the OCR text used |
 | `vocab_hash` | text | hash of the tag + correspondent lists used |
 | `doc_modified` | text | Paperless `modified` timestamp at suggestion time |
+| `in_inbox` | integer | 1 while the document carries the inbox tag (updated every poll) |
+| `added` | text | Paperless `added` timestamp, used for queue order |
+| `priority` | integer | 1 for user-requested regeneration, processed first |
 | `error` | text null | last error message |
 | `attempts` | integer | LLM attempts for the current version |
 | `created_at`, `updated_at` | text | |
 
 A suggestion is **stale** when `content_hash` or `vocab_hash` no longer match; the worker
 regenerates stale suggestions whose status is `pending`, `ready` or `error`.
+A document that is back in the inbox after being applied is reset to `pending`.
+`updated_at` changes only when the suggestion or its status changes, not on every poll.
+The document-count part of the vocabulary is excluded from `vocab_hash`, so applying
+documents does not make every other suggestion stale.
 Skipping a document in the UI does not change its status; it only moves on to the next
 document for that session.
 
@@ -200,14 +207,14 @@ All routes require an authenticated session unless `AUTH_DISABLED=true`.
 | `GET /api/status` | Paperless reachable, LLM reachable + model, counts (`ready`, `pending`, `error`) |
 | `GET /api/queue/next?after=<id>` | Next reviewable document (`ready`, `error`, `no_text`) in inbox order after `after` |
 | `GET /api/documents/:id` | Suggestion + current Paperless values + preview/thumbnail/PDF URLs (proxied) + vocabulary |
-| `GET /api/documents/:id/preview`, `/thumb`, `/content` | Proxied from Paperless (token stays server-side) |
-| `POST /api/documents/:id/apply` | Body: final title, correspondent (id or new name), tags (ids + new names). Applies to Paperless |
+| `GET /api/documents/:id/preview`, `/thumb` | Proxied from Paperless (token stays server-side). OCR text is part of the document response |
+| `POST /api/documents/:id/apply` | Body: final title, correspondent (id or new name), tags (ids + new names), and the `modified` value the UI loaded (`expectedModified`). Applies to Paperless |
 | `POST /api/documents/:id/regenerate` | Marks `pending`, worker picks it up with priority |
 
 ### Apply semantics
 
-1. Re-fetch the document; if `modified` differs from `doc_modified`, return `409` with
-   the current values. The UI shows a warning and the refreshed state; nothing is written.
+1. Re-fetch the document; if `modified` differs from `expectedModified` (the value the
+   user was looking at), return `409` with the current values. The UI shows a warning and the refreshed state; nothing is written.
 2. Validate referenced tag/correspondent ids still exist; ids that disappeared come back
    in a `409` as NEW proposals for the user to confirm or drop.
 3. Create the new tags/correspondent the user kept.
@@ -233,7 +240,8 @@ A mockup was reviewed during brainstorming (desktop split view + mobile layout).
 - **Correspondent:** dropdown of existing correspondents only, plus an explicit
   "create new…" entry. A NEW proposal is shown with the same dashed-orange marking and
   nearest alternatives as tags.
-- **Tags:** chips. Existing = solid; NEW = dashed orange, with a hint line
+- **Tags:** chips, pre-filled with the union of tags already on the document (e.g. set by
+  Paperless matching rules, inbox tag excluded) and the suggested tags. Existing = solid; NEW = dashed orange, with a hint line
   "'X' doesn't exist yet. Similar: A · B" where tapping an alternative swaps the chip.
   Chips removable; "+ add tag" opens a searchable list of existing tags.
 - Auto-matched proposals show a small "matched from '…'" note.
