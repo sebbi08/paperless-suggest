@@ -128,7 +128,7 @@ function ReviewForm({ detail, onNext, onReload }: { detail: DocumentDetail; onNe
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.isComposing || e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.defaultPrevented || e.repeat || e.isComposing || e.metaKey || e.ctrlKey || e.altKey) return
       const target = e.target instanceof Element ? e.target : null
       if (e.key === 'Enter') {
         if (target?.closest('button, a, textarea, [data-no-enter-apply]')) return
@@ -142,7 +142,7 @@ function ReviewForm({ detail, onNext, onReload }: { detail: DocumentDetail; onNe
         onNext()
       } else if (e.key === 'r' || e.key === 'R') {
         e.preventDefault()
-        regenerate.mutate()
+        if (!regenerate.isPending) regenerate.mutate()
       }
     }
     window.addEventListener('keydown', onKey)

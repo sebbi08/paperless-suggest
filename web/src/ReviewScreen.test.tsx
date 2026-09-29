@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, ApiError } from './api'
@@ -75,6 +75,17 @@ describe('ReviewScreen', () => {
     expect(title).toHaveValue('Telekom Rechnung 1 sr')
     expect(screen.queryByDisplayValue('Telekom Rechnung 2')).not.toBeInTheDocument()
     expect(mocked.regenerate).not.toHaveBeenCalled()
+  })
+
+  it('ignores auto-repeated key presses', async () => {
+    renderScreen()
+    await screen.findByDisplayValue('Telekom Rechnung 1')
+    fireEvent.keyDown(document.body, { key: 'Enter', repeat: true })
+    fireEvent.keyDown(document.body, { key: 's', repeat: true })
+    fireEvent.keyDown(document.body, { key: 'r', repeat: true })
+    expect(mocked.apply).not.toHaveBeenCalled()
+    expect(mocked.regenerate).not.toHaveBeenCalled()
+    expect(screen.getByDisplayValue('Telekom Rechnung 1')).toBeInTheDocument()
   })
 
   it('requests a new suggestion with R', async () => {
