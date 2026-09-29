@@ -79,6 +79,13 @@ export class Worker {
       vocabHash,
     )
 
+    const metaFor = (d: PaperlessDocument) => ({ contentHash: hashContent(d.content), vocabHash, docModified: d.modified })
+    for (const d of docs) {
+      if (d.content.trim()) continue
+      const stored = store.get(d.id)
+      if (stored?.status === 'pending' || store.isStale(d.id)) store.saveResult(d.id, { kind: 'no_text' }, metaFor(d))
+    }
+
     const health = await llm.health()
     if (!health.ok) {
       this.llmDown(health.error)
@@ -88,14 +95,23 @@ export class Worker {
     this.backoffMs = 0
 
     for (let id = store.nextWork(); id !== null && !this.stopped; id = store.nextWork()) {
+      let doc: PaperlessDocument | undefined
       try {
-        const doc = byId.get(id) ?? (await paperless.getDocument(id))
+        doc = byId.get(id) ?? (await paperless.getDocument(id))
         const examples = await loadExamples(paperless, vocab, doc.content, new Set([doc.id]))
         const result = await suggester.suggest({ content: doc.content, vocabulary: vocab, examples })
-        store.saveResult(id, result, { contentHash: hashContent(doc.content), vocabHash, docModified: doc.modified })
+        store.saveResult(id, result, metaFor(doc))
         this.log.info(`Document ${id}: ${result.kind}`)
       } catch (e) {
-        if (e instanceof LlmError) this.llmDown(e.message)
+        if (e instanceof LlmError && doc) {
+          const again = await llm.health()
+          if (again.ok) {
+            store.saveResult(id, { kind: 'error', error: e.message, model: null }, metaFor(doc))
+            this.log.warn(`Document ${id}: ${e.message}`)
+            continue
+          }
+          this.llmDown(again.error)
+        } else if (e instanceof LlmError) this.llmDown(e.message)
         else this.paperlessDown(e)
         return
       }

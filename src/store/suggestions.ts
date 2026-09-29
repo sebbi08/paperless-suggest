@@ -97,6 +97,13 @@ export class SuggestionStore {
     })()
   }
 
+  isStale(documentId: number): boolean {
+    const r = this.db.prepare('SELECT stale FROM suggestions WHERE document_id = ?').get(documentId) as
+      | { stale: number }
+      | undefined
+    return r?.stale === 1
+  }
+
   nextWork(): number | null {
     const row = this.db
       .prepare(

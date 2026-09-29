@@ -82,13 +82,32 @@ describe('Worker', () => {
   })
 
   it('stops processing and keeps documents pending when the LLM drops mid-run', async () => {
-    const { store, suggester, worker } = setup()
+    const { store, suggester, worker } = setup([online, offline])
     suggester.suggest.mockResolvedValueOnce(okResult).mockRejectedValueOnce(new LlmError('socket hang up'))
     await worker.tick()
     expect(store.get(1)?.status).toBe('ready')
     expect(store.get(2)?.status).toBe('pending')
-    expect(worker.status().llm).toEqual({ ok: false, model: null, error: 'socket hang up' })
+    expect(worker.status().llm).toEqual({ ok: false, model: null, error: offline.error })
     expect(worker.nextDelayMs()).toBe(60_000)
+  })
+
+  it('marks a document the LLM rejects as error and continues while the LLM is healthy', async () => {
+    const { store, suggester, worker } = setup()
+    suggester.suggest.mockRejectedValueOnce(new LlmError('context length exceeded')).mockResolvedValueOnce(okResult)
+    await worker.tick()
+    expect(store.get(1)).toMatchObject({ status: 'error', error: 'context length exceeded' })
+    expect(store.get(2)?.status).toBe('ready')
+    expect(worker.status().llm.ok).toBe(true)
+  })
+
+  it('marks blank documents no_text without needing the LLM', async () => {
+    const { store, suggester, worker, setDocs } = setup([offline])
+    setDocs([makeDocument({ id: 1, added: '2026-09-01', content: '  \n ' }), makeDocument({ id: 2, added: '2026-09-02', content: 'x' })])
+    await worker.tick()
+    expect(store.get(1)?.status).toBe('no_text')
+    expect(store.get(2)?.status).toBe('pending')
+    expect(store.nextReviewable()).toBe(1)
+    expect(suggester.suggest).not.toHaveBeenCalled()
   })
 
   it('reports Paperless failures without throwing', async () => {
