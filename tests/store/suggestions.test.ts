@@ -63,15 +63,43 @@ describe('SuggestionStore', () => {
     expect(store.counts()).toEqual({ ready: 0, pending: 0, error: 1, noText: 1 })
   })
 
-  it('marks suggestions stale when content or vocabulary changes', () => {
-    store.syncInbox([item(1, 'a'), item(2, 'b')], 'v1')
+  it('keeps stale ready/error rows reviewable but queues them for refresh', () => {
+    store.syncInbox([item(1, 'a'), item(2, 'b'), item(3, 'c')], 'v1')
     store.saveResult(1, ok, meta('c1', 'v1'))
     store.saveResult(2, ok, meta('c1', 'v1'))
-    store.syncInbox([item(1, 'a', 'c2'), item(2, 'b')], 'v1')
-    expect(store.get(1)?.status).toBe('pending')
+    store.saveResult(3, { kind: 'error', error: 'x', model: null }, meta('c1', 'v1'))
+    clock += 60_000
+    store.syncInbox([item(1, 'a', 'c2'), item(2, 'b'), item(3, 'c')], 'v1')
+    expect(store.get(1)?.status).toBe('ready')
+    expect(store.get(1)?.updatedAt).toBe('2026-09-29T10:00:00.000Z')
+    expect(store.nextReviewable()).toBe(1)
+    expect(store.nextWork()).toBe(1)
+    store.saveResult(1, ok, meta('c2', 'v1'))
+    expect(store.nextWork()).toBeNull()
+    store.syncInbox([item(1, 'a', 'c2'), item(2, 'b'), item(3, 'c')], 'v2')
     expect(store.get(2)?.status).toBe('ready')
-    store.syncInbox([item(1, 'a', 'c2'), item(2, 'b')], 'v2')
-    expect(store.get(2)?.status).toBe('pending')
+    expect(store.get(3)?.status).toBe('error')
+    expect(store.nextReviewable(1)).toBe(2)
+    expect(store.nextWork()).toBe(1)
+    store.saveResult(1, ok, meta('c2', 'v2'))
+    store.saveResult(2, ok, meta('c1', 'v2'))
+    expect(store.nextWork()).toBe(3)
+    store.saveResult(3, ok, meta('c1', 'v2'))
+    expect(store.nextWork()).toBeNull()
+  })
+
+  it('resets a no_text row to pending when its content changes', () => {
+    store.syncInbox([item(1, 'a')], 'v1')
+    store.saveResult(1, { kind: 'no_text' }, meta('c1', 'v1'))
+    store.syncInbox([item(1, 'a', 'c2')], 'v1')
+    expect(store.get(1)?.status).toBe('pending')
+  })
+
+  it('does not overwrite an applied document with a late result', () => {
+    store.syncInbox([item(1, 'a')], 'v1')
+    store.markApplied(1)
+    store.saveResult(1, ok, meta())
+    expect(store.get(1)?.status).toBe('applied')
   })
 
   it('does not touch updatedAt when a poll changes nothing', () => {

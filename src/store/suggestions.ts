@@ -57,7 +57,6 @@ interface Row {
 }
 
 const REVIEWABLE = `in_inbox = 1 AND status IN ('ready', 'error', 'no_text')`
-const REFRESHABLE: SuggestionStatus[] = ['ready', 'error', 'no_text']
 
 export class SuggestionStore {
   constructor(
@@ -76,8 +75,9 @@ export class SuggestionStore {
        VALUES (@id, 'pending', 1, @added, @now, @now)`,
     )
     const keep = this.db.prepare('UPDATE suggestions SET in_inbox = 1, added = @added WHERE document_id = @id')
+    const markStale = this.db.prepare('UPDATE suggestions SET in_inbox = 1, added = @added, stale = 1 WHERE document_id = @id')
     const reset = this.db.prepare(
-      `UPDATE suggestions SET in_inbox = 1, added = @added, status = 'pending', updated_at = @now WHERE document_id = @id`,
+      `UPDATE suggestions SET in_inbox = 1, added = @added, status = 'pending', stale = 0, updated_at = @now WHERE document_id = @id`,
     )
     this.db.transaction(() => {
       this.db.prepare('UPDATE suggestions SET in_inbox = 0').run()
@@ -89,10 +89,9 @@ export class SuggestionStore {
           insert.run({ ...params, now })
           continue
         }
-        const stale =
-          row.status === 'applied' ||
-          (REFRESHABLE.includes(row.status) && (row.content_hash !== it.contentHash || row.vocab_hash !== vocabHash))
-        if (stale) reset.run({ ...params, now })
+        const changed = row.content_hash !== it.contentHash || row.vocab_hash !== vocabHash
+        if (row.status === 'applied' || (row.status === 'no_text' && changed)) reset.run({ ...params, now })
+        else if ((row.status === 'ready' || row.status === 'error') && changed) markStale.run(params)
         else keep.run(params)
       }
     })()
@@ -101,7 +100,7 @@ export class SuggestionStore {
   nextWork(): number | null {
     const row = this.db
       .prepare(
-        `SELECT document_id FROM suggestions WHERE in_inbox = 1 AND status = 'pending'
+        `SELECT document_id FROM suggestions WHERE in_inbox = 1 AND (status = 'pending' OR stale = 1)
          ORDER BY priority DESC, added ASC, document_id ASC LIMIT 1`,
       )
       .get() as { document_id: number } | undefined
@@ -117,8 +116,8 @@ export class SuggestionStore {
            proposed_correspondent = @proposedCorrespondent, tag_ids = @tagIds, proposed_tags = @proposedTags,
            matched_notes = @matchedNotes, model = @model, error = @error,
            content_hash = @contentHash, vocab_hash = @vocabHash, doc_modified = @docModified,
-           attempts = attempts + 1, priority = 0, updated_at = @now
-         WHERE document_id = @documentId`,
+           attempts = attempts + 1, priority = 0, stale = 0, updated_at = @now
+         WHERE document_id = @documentId AND (status = 'pending' OR stale = 1)`,
       )
       .run({
         documentId,

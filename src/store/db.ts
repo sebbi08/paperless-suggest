@@ -12,6 +12,7 @@ export function openDb(file: string): Db {
       in_inbox INTEGER NOT NULL DEFAULT 1,
       added TEXT NOT NULL,
       priority INTEGER NOT NULL DEFAULT 0,
+      stale INTEGER NOT NULL DEFAULT 0,
       title TEXT,
       correspondent_id INTEGER,
       proposed_correspondent TEXT,
