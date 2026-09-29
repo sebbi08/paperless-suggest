@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+@theme {
+  /* desktop split view from 900px */
+  --breakpoint-desk: 56.25rem;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
