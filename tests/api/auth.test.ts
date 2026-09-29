@@ -86,4 +86,18 @@ describe('auth', () => {
     const res = await app.request('/api/logout', { method: 'POST' })
     expect(res.headers.get('set-cookie')).toContain('Max-Age=0')
   })
+
+  it('prevents rate-limit bypass with parallel requests', async () => {
+    const { login } = setup()
+    const results = await Promise.all(Array(20).fill('nope').map((pwd) => login(pwd)))
+    const statuses = results.map((r) => r.status)
+    const count401 = statuses.filter((s) => s === 401).length
+    const count429 = statuses.filter((s) => s === 429).length
+    expect(count401).toBe(10)
+    expect(count429).toBe(10)
+  })
+
+  it('throws Error on empty secret', () => {
+    expect(() => createAuth({ password: 'pw', disabled: false, secret: '' })).toThrow()
+  })
 })

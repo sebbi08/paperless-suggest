@@ -23,6 +23,7 @@ export interface Auth {
 const digest = (s: string) => createHash('sha256').update(s).digest()
 
 export function createAuth(opts: AuthOptions): Auth {
+  if (!opts.secret) throw new Error('secret must not be empty')
   const now = opts.now ?? Date.now
   let failures: number[] = []
 
@@ -49,11 +50,11 @@ export function createAuth(opts: AuthOptions): Auth {
 
     async login(c) {
       if (opts.disabled) return c.json({ ok: true })
+      const body = (await c.req.json().catch(() => null)) as { password?: unknown } | null
+      const password = typeof body?.password === 'string' ? body.password : ''
       const t = now()
       failures = failures.filter((f) => t - f < FAILURE_WINDOW_MS)
       if (failures.length >= MAX_FAILURES) return c.json({ error: 'Too many attempts, try again later' }, 429)
-      const body = (await c.req.json().catch(() => null)) as { password?: unknown } | null
-      const password = typeof body?.password === 'string' ? body.password : ''
       if (!opts.password || !timingSafeEqual(digest(password), digest(opts.password))) {
         failures.push(t)
         return c.json({ error: 'Wrong password' }, 401)
