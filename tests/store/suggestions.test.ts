@@ -102,6 +102,19 @@ describe('SuggestionStore', () => {
     expect(store.get(1)?.status).toBe('applied')
   })
 
+  it('never re-queues or revives an applied document that was stale', () => {
+    store.syncInbox([item(1, 'a')], 'v1')
+    store.saveResult(1, ok, meta('c1', 'v1'))
+    store.syncInbox([item(1, 'a')], 'v2')
+    expect(store.isStale(1)).toBe(true)
+    store.markApplied(1)
+    expect(store.nextWork()).toBeNull()
+    expect(store.isStale(1)).toBe(false)
+    store.saveResult(1, ok, meta('c1', 'v2'))
+    expect(store.get(1)?.status).toBe('applied')
+    expect(store.nextReviewable()).toBeNull()
+  })
+
   it('does not touch updatedAt when a poll changes nothing', () => {
     store.syncInbox([item(1, 'a')], 'v1')
     store.saveResult(1, ok, meta())

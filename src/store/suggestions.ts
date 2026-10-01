@@ -196,7 +196,7 @@ export class SuggestionStore {
 
   markApplied(documentId: number): void {
     this.db
-      .prepare(`UPDATE suggestions SET status = 'applied', priority = 0, updated_at = ? WHERE document_id = ?`)
+      .prepare(`UPDATE suggestions SET status = 'applied', priority = 0, stale = 0, updated_at = ? WHERE document_id = ?`)
       .run(this.ts(), documentId)
   }
 
