@@ -13,8 +13,7 @@ services:
       # LLM_MODEL: qwen3-14b                      # optional; default = model loaded in LM Studio
       APP_PASSWORD: change-me
       # AUTH_DISABLED: "true"                     # only behind an authenticating reverse proxy
+      # USERMAP_UID: 1000                         # owner of ./data on the host (created automatically)
+      # USERMAP_GID: 1000
     volumes:
-      - suggest-data:/data
-
-volumes:
-  suggest-data:
+      - ./data:/data

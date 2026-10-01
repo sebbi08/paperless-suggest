@@ -1,9 +1,18 @@
 import Database from 'better-sqlite3'
+import path from 'node:path'
 
 export type Db = Database.Database
 
 export function openDb(file: string): Db {
-  const db = new Database(file)
+  let db: Db
+  try {
+    db = new Database(file)
+  } catch (e) {
+    const uid = process.getuid?.() ?? 'unknown'
+    throw new Error(
+      `Cannot open database ${file}: directory ${path.dirname(file)} is missing or not writable by uid ${uid} (${(e as Error).message})`,
+    )
+  }
   db.pragma('journal_mode = WAL')
   db.exec(`
     CREATE TABLE IF NOT EXISTS suggestions (

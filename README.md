@@ -24,6 +24,9 @@ Design: `docs/superpowers/specs/2026-09-29-paperless-suggest-design.md`
    project, fill in the values and run `docker compose up -d --build paperless-suggest`.
    Open `http://<server>:3000`.
 
+The data directory (`./data` in the example) may be a bind mount that Docker creates on first
+start: the container takes ownership of it for `USERMAP_UID:USERMAP_GID` and then drops root.
+
 For access from your phone outside your home network, use the same path you use for Paperless
 (reverse proxy, VPN or Tailscale).
 
@@ -42,6 +45,7 @@ For access from your phone outside your home network, use the same path you use 
 | `MAX_CONTENT_CHARS` | `6000` | OCR text sent to the model |
 | `NEW_NAME_MATCH_THRESHOLD` | `0.85` | Similarity above which a proposed new name is mapped to an existing one |
 | `DATA_DIR` | `/data` | SQLite location |
+| `USERMAP_UID` / `USERMAP_GID` | `1000` | Owner of the data directory; the app runs as this user |
 | `PORT` | `3000` | HTTP port |
 
 ## Choosing a model
