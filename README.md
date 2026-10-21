@@ -46,6 +46,7 @@ For access from your phone outside your home network, use the same path you use 
 | `POLL_INTERVAL` | `300` | Seconds between inbox polls |
 | `LLM_CONCURRENCY` | `1` | Documents sent to the LLM at the same time (one document per request) |
 | `LLM_CONTEXT_LENGTH` | LM Studio's setting | Context length the model is loaded with; see below |
+| `LLM_UNLOAD_WHEN_IDLE` | `false` | Unload the model in LM Studio once no documents are left; see below |
 | `MAX_CONTENT_CHARS` | `6000` | OCR text sent to the model |
 | `NEW_NAME_MATCH_THRESHOLD` | `0.85` | Similarity above which a proposed new name is mapped to an existing one |
 | `DATA_DIR` | `/data` | SQLite location |
@@ -62,10 +63,18 @@ Parallel requests share the model's context. One document needs up to about 6–
 plus the model's answer, including reasoning), so the context must be at least
 `LLM_CONCURRENCY × 8192`, or requests fail with "Context size has been exceeded". Set
 `LLM_CONTEXT_LENGTH` (e.g. `16384` for two at a time) and the app checks before every run
-whether the model is loaded with at least that context. If not, it unloads the model and loads it
+that has documents to suggest for whether the model is loaded with at least that context. If not, it unloads the model and loads it
 again with that context through LM Studio's REST API (LM Studio 0.4 or newer). This also affects
 other programs using that model in LM Studio at the time. A larger context needs more VRAM; if
 the load fails, the error is shown in the status bar.
+
+### Freeing VRAM when idle
+
+With `LLM_UNLOAD_WHEN_IDLE=true`, the app unloads the model through LM Studio's REST API (LM Studio
+0.4 or newer) as soon as a run leaves no documents to suggest for. The next document loads it
+again: with `LLM_CONTEXT_LENGTH` set the app loads it itself, otherwise LM Studio's just-in-time
+loading does. The app only unloads a model it has used since the last unload, and never while
+documents are still waiting.
 
 ## Choosing a model
 

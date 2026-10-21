@@ -13,6 +13,7 @@ services:
       # LLM_MODEL: qwen3-14b                      # optional; default = model loaded in LM Studio
       # LLM_CONCURRENCY: 2                        # parallel suggestions; LM Studio "Max Concurrent Predictions" >= this
       # LLM_CONTEXT_LENGTH: 16384                 # (re)load the model with this context; >= LLM_CONCURRENCY × 8192
+      # LLM_UNLOAD_WHEN_IDLE: "true"              # unload the model once no documents are left
       APP_PASSWORD: change-me
       # AUTH_DISABLED: "true"                     # only behind an authenticating reverse proxy
       # USERMAP_UID: 1000                         # owner of ./data on the host (created automatically)

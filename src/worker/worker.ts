@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { LlmError, type LlmClient, type LlmHealth } from '../llm/client'
+import { LlmError, type LlmClient, type LlmHealth, type LlmModelControl } from '../llm/client'
 import type { PaperlessClient } from '../paperless/client'
 import type { PaperlessDocument, Vocabulary } from '../paperless/types'
 import { hashVocabulary, loadVocabulary } from '../paperless/vocabulary'
@@ -18,13 +18,15 @@ export interface WorkerStatus {
 
 export interface WorkerDeps {
   paperless: PaperlessClient
-  llm: LlmClient
+  llm: LlmClient & LlmModelControl
   suggester: Suggester
   store: SuggestionStore
   inboxTag: string | null
   pollIntervalSec: number
   /** Suggestions requested from the LLM at the same time (default 1) */
   llmConcurrency?: number
+  /** Unload the model once a run has emptied the queue */
+  unloadWhenIdle?: boolean
   logger?: Pick<Console, 'info' | 'warn' | 'error'>
   now?: () => Date
 }
@@ -44,6 +46,8 @@ export class Worker {
   private running = false
   private wakeRequested = false
   private stopped = false
+  /** The model was used since it was last unloaded */
+  private modelInUse = false
   private readonly log: Pick<Console, 'info' | 'warn' | 'error'>
   private readonly now: () => Date
 
@@ -95,6 +99,15 @@ export class Worker {
     }
     this.llmState = { ok: true, model: health.model, error: null }
     this.backoffMs = 0
+    if (store.nextWork() === null) return this.unloadIfIdle()
+
+    try {
+      await llm.ensureLoaded()
+    } catch (e) {
+      this.llmDown(message(e))
+      return
+    }
+    this.modelInUse = true
 
     // Up to llmConcurrency lanes take documents from the queue; `busy` keeps two lanes off the same one.
     const busy = new Set<number>()
@@ -139,6 +152,7 @@ export class Worker {
       }
     }
     await Promise.all(Array.from({ length: this.deps.llmConcurrency ?? 1 }, lane))
+    await this.unloadIfIdle()
   }
 
   start(): void {
@@ -181,6 +195,18 @@ export class Worker {
       this.schedule(0)
     } else {
       this.schedule(this.nextDelayMs())
+    }
+  }
+
+  /** Unloads the model if this worker used it and nothing is left to suggest. */
+  private async unloadIfIdle(): Promise<void> {
+    if (!this.deps.unloadWhenIdle || !this.modelInUse || this.stopped || this.deps.store.nextWork() !== null) return
+    this.modelInUse = false
+    try {
+      await this.deps.llm.unload()
+      this.log.info('Queue empty: unloaded the model')
+    } catch (e) {
+      this.log.warn(`Could not unload the model: ${message(e)}`)
     }
   }
 

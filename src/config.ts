@@ -16,6 +16,8 @@ export interface Config {
   llmConcurrency: number
   /** null leaves LM Studio's load settings alone */
   llmContextLength: number | null
+  /** Unload the model in LM Studio once the queue is empty */
+  llmUnloadWhenIdle: boolean
   maxContentChars: number
   newNameMatchThreshold: number
   dataDir: string
@@ -33,6 +35,7 @@ const EnvSchema = z.object({
   POLL_INTERVAL: z.coerce.number().int().positive().default(300),
   LLM_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(1),
   LLM_CONTEXT_LENGTH: z.coerce.number().int().min(2048).optional(),
+  LLM_UNLOAD_WHEN_IDLE: z.enum(['true', 'false', '1', '0']).optional(),
   MAX_CONTENT_CHARS: z.coerce.number().int().positive().default(6000),
   NEW_NAME_MATCH_THRESHOLD: z.coerce.number().min(0).max(1).default(0.85),
   DATA_DIR: z.string().default('/data'),
@@ -70,6 +73,7 @@ export function loadConfig(
     pollIntervalSec: e.POLL_INTERVAL,
     llmConcurrency: e.LLM_CONCURRENCY,
     llmContextLength: e.LLM_CONTEXT_LENGTH ?? null,
+    llmUnloadWhenIdle: e.LLM_UNLOAD_WHEN_IDLE === 'true' || e.LLM_UNLOAD_WHEN_IDLE === '1',
     maxContentChars: e.MAX_CONTENT_CHARS,
     newNameMatchThreshold: e.NEW_NAME_MATCH_THRESHOLD,
     dataDir: e.DATA_DIR,

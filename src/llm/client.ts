@@ -20,6 +20,14 @@ export interface LlmClient {
   health(): Promise<LlmHealth>
 }
 
+/** Model loading through LM Studio's REST API */
+export interface LlmModelControl {
+  /** Loads the model with LLM_CONTEXT_LENGTH unless it already has that much; LM Studio's own loading otherwise. */
+  ensureLoaded(): Promise<void>
+  /** Unloads every loaded instance of the model. */
+  unload(): Promise<void>
+}
+
 export class LlmError extends Error {
   override name = 'LlmError'
 }
@@ -41,7 +49,7 @@ export function createLlmClient(opts: {
   /** When set, the model is (re)loaded in LM Studio with at least this context length. */
   contextLength?: number | null
   timeoutMs?: number
-}): LlmClient {
+}): LlmClient & LlmModelControl {
   const baseUrl = opts.baseUrl.replace(/\/+$/, '')
   const root = baseUrl.replace(/\/v1$/, '')
   const openai = new OpenAI({
@@ -72,10 +80,14 @@ export function createLlmClient(opts: {
     return text ? JSON.parse(text) : null
   }
 
+  async function loadedInstances(model: string): Promise<NonNullable<LmStudioModelV1['loaded_instances']>> {
+    const list = (await lmStudio('GET', '/api/v1/models')) as { models?: LmStudioModelV1[] }
+    return list.models?.find((m) => m.key === model)?.loaded_instances ?? []
+  }
+
   /** Reloads `model` unless an instance with a large enough context is already loaded. */
   async function ensureContextLength(model: string, contextLength: number): Promise<void> {
-    const list = (await lmStudio('GET', '/api/v1/models')) as { models?: LmStudioModelV1[] }
-    const instances = list.models?.find((m) => m.key === model)?.loaded_instances ?? []
+    const instances = await loadedInstances(model)
     if (instances.some((i) => (i.config?.context_length ?? 0) >= contextLength)) return
     for (const i of instances) await lmStudio('POST', '/api/v1/models/unload', { instance_id: i.id })
     await lmStudio('POST', '/api/v1/models/load', { model, context_length: contextLength })
@@ -90,18 +102,28 @@ export function createLlmClient(opts: {
       }
       let model = opts.model
       if (!model) {
-        loadedModel = await findLoadedModel().catch(() => null)
+        // after an unload, keep using the model that was loaded last
+        loadedModel = (await findLoadedModel().catch(() => null)) ?? loadedModel
         if (!loadedModel) return { ok: false, error: 'No model loaded in LM Studio and LLM_MODEL is not set' }
         model = loadedModel
       }
-      if (opts.contextLength) {
-        try {
-          await ensureContextLength(model, opts.contextLength)
-        } catch (e) {
-          return { ok: false, error: `Could not load ${model} with context length ${opts.contextLength}: ${(e as Error).message}` }
-        }
-      }
       return { ok: true, model }
+    },
+
+    async ensureLoaded() {
+      const model = opts.model ?? loadedModel
+      if (!opts.contextLength || !model) return
+      try {
+        await ensureContextLength(model, opts.contextLength)
+      } catch (e) {
+        throw new Error(`Could not load ${model} with context length ${opts.contextLength}: ${(e as Error).message}`)
+      }
+    },
+
+    async unload() {
+      const model = opts.model ?? loadedModel
+      if (!model) return
+      for (const i of await loadedInstances(model)) await lmStudio('POST', '/api/v1/models/unload', { instance_id: i.id })
     },
 
     async complete(req) {

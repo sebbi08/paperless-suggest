@@ -43,6 +43,7 @@ async function main(): Promise<void> {
     inboxTag: config.inboxTag,
     pollIntervalSec: config.pollIntervalSec,
     llmConcurrency: config.llmConcurrency,
+    unloadWhenIdle: config.llmUnloadWhenIdle,
   })
 
   try {

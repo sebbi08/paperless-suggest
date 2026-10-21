@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { LlmError, type LlmClient, type LlmHealth } from '../../src/llm/client'
+import { LlmError, type LlmClient, type LlmHealth, type LlmModelControl } from '../../src/llm/client'
 import { PaperlessError } from '../../src/paperless/client'
 import type { PaperlessDocument } from '../../src/paperless/types'
 import { openDb } from '../../src/store/db'
@@ -16,7 +16,7 @@ const okResult: SuggestResult = {
 const online: LlmHealth = { ok: true, model: 'm' }
 const offline: LlmHealth = { ok: false, error: 'LM Studio unreachable: connect ECONNREFUSED' }
 
-function setup(healthSequence: LlmHealth[] = [online], opts: { llmConcurrency?: number; docCount?: number } = {}) {
+function setup(healthSequence: LlmHealth[] = [online], opts: { llmConcurrency?: number; docCount?: number; unloadWhenIdle?: boolean } = {}) {
   const store = new SuggestionStore(openDb(':memory:'))
   const v = makeVocabulary()
   const words = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth']
@@ -33,10 +33,12 @@ function setup(healthSequence: LlmHealth[] = [online], opts: { llmConcurrency?: 
     ]),
   })
   const health = [...healthSequence]
-  const llm: LlmClient = {
+  const llm = {
     complete: vi.fn(),
     health: vi.fn(async () => (health.length > 1 ? health.shift()! : health[0]!)),
-  }
+    ensureLoaded: vi.fn(async () => {}),
+    unload: vi.fn(async () => {}),
+  } satisfies LlmClient & LlmModelControl
   const suggester = { suggest: vi.fn(async (_input: SuggestInput): Promise<SuggestResult> => okResult) }
   const worker = new Worker({
     paperless,
@@ -46,6 +48,7 @@ function setup(healthSequence: LlmHealth[] = [online], opts: { llmConcurrency?: 
     inboxTag: null,
     pollIntervalSec: 300,
     llmConcurrency: opts.llmConcurrency,
+    unloadWhenIdle: opts.unloadWhenIdle,
     logger: silentLogger,
   })
   return { store, paperless, llm, suggester, worker, setDocs: (d: PaperlessDocument[]) => (docs = d) }
@@ -219,5 +222,77 @@ describe('Worker', () => {
     } finally {
       worker.stop()
     }
+  })
+
+  describe('model loading', () => {
+    it('loads the model before working through the queue', async () => {
+      const { llm, suggester, worker } = setup()
+      await worker.tick()
+      expect(llm.ensureLoaded).toHaveBeenCalledOnce()
+      expect(llm.ensureLoaded.mock.invocationCallOrder[0]).toBeLessThan(suggester.suggest.mock.invocationCallOrder[0]!)
+    })
+
+    it('does not load the model when there is nothing to do', async () => {
+      const { llm, worker } = setup([online], { docCount: 0 })
+      await worker.tick()
+      expect(llm.ensureLoaded).not.toHaveBeenCalled()
+      expect(worker.status().llm).toEqual({ ok: true, model: 'm', error: null })
+    })
+
+    it('reports the LLM offline and suggests nothing when loading fails', async () => {
+      const { llm, store, suggester, worker } = setup()
+      llm.ensureLoaded.mockRejectedValueOnce(new Error('Could not load m with context length 16384: Not enough VRAM'))
+      await worker.tick()
+      expect(suggester.suggest).not.toHaveBeenCalled()
+      expect(store.counts().pending).toBe(2)
+      expect(worker.status().llm).toEqual({ ok: false, model: null, error: 'Could not load m with context length 16384: Not enough VRAM' })
+    })
+
+    it('unloads the model once the queue is empty', async () => {
+      const { llm, store, worker } = setup([online], { unloadWhenIdle: true })
+      await worker.tick()
+      expect(store.counts().ready).toBe(2)
+      expect(llm.unload).toHaveBeenCalledOnce()
+      await worker.tick()
+      expect(llm.unload).toHaveBeenCalledOnce()
+    })
+
+    it('keeps the model loaded without unloadWhenIdle', async () => {
+      const { llm, worker } = setup()
+      await worker.tick()
+      expect(llm.unload).not.toHaveBeenCalled()
+    })
+
+    it('does not unload a model it did not use', async () => {
+      const { llm, worker } = setup([online], { unloadWhenIdle: true, docCount: 0 })
+      await worker.tick()
+      expect(llm.unload).not.toHaveBeenCalled()
+    })
+
+    it('keeps the model loaded while documents are left', async () => {
+      const { llm, suggester, store, worker } = setup([online, offline], { unloadWhenIdle: true })
+      suggester.suggest.mockRejectedValueOnce(new LlmError('socket hang up'))
+      await worker.tick()
+      expect(store.counts().pending).toBe(2)
+      expect(llm.unload).not.toHaveBeenCalled()
+    })
+
+    it('unloads once the remaining documents leave the inbox', async () => {
+      const { llm, suggester, worker, setDocs } = setup([online, offline, online], { unloadWhenIdle: true })
+      suggester.suggest.mockRejectedValueOnce(new LlmError('socket hang up'))
+      await worker.tick()
+      setDocs([])
+      await worker.tick()
+      expect(llm.unload).toHaveBeenCalledOnce()
+    })
+
+    it('keeps working when the unload fails', async () => {
+      const { llm, store, worker, setDocs } = setup([online], { unloadWhenIdle: true })
+      llm.unload.mockRejectedValueOnce(new Error('POST /api/v1/models/unload failed: 404'))
+      await worker.tick()
+      setDocs([makeDocument({ id: 7, added: '2026-09-07', content: 'seventh' })])
+      await worker.tick()
+      expect(store.get(7)?.status).toBe('ready')
+    })
   })
 })

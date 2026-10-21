@@ -21,6 +21,7 @@ describe('loadConfig', () => {
       pollIntervalSec: 300,
       llmConcurrency: 1,
       llmContextLength: null,
+      llmUnloadWhenIdle: false,
       maxContentChars: 6000,
       newNameMatchThreshold: 0.85,
       dataDir: '/data',
@@ -64,6 +65,7 @@ describe('loadConfig', () => {
       POLL_INTERVAL: '60',
       LLM_CONCURRENCY: '4',
       LLM_CONTEXT_LENGTH: '32768',
+      LLM_UNLOAD_WHEN_IDLE: 'true',
       MAX_CONTENT_CHARS: '4000',
       NEW_NAME_MATCH_THRESHOLD: '0.9',
       DATA_DIR: './data',
@@ -75,11 +77,16 @@ describe('loadConfig', () => {
       pollIntervalSec: 60,
       llmConcurrency: 4,
       llmContextLength: 32768,
+      llmUnloadWhenIdle: true,
       maxContentChars: 4000,
       newNameMatchThreshold: 0.9,
       dataDir: './data',
       port: 8080,
     })
+  })
+
+  it('rejects an unknown LLM_UNLOAD_WHEN_IDLE value', () => {
+    expect(() => loadConfig({ ...base, LLM_UNLOAD_WHEN_IDLE: 'yes' })).toThrow(/LLM_UNLOAD_WHEN_IDLE/)
   })
 
   it('rejects a concurrency below 1', () => {
