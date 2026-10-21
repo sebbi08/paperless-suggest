@@ -74,6 +74,28 @@ describe('ReviewScreen', () => {
     expect(screen.getByText('NEW: Mobilfunk')).toBeInTheDocument()
   })
 
+  it('shows the suggested issue date with the current one struck through', async () => {
+    renderScreen()
+    expect(await screen.findByLabelText('Issue date')).toHaveValue('2026-09-12')
+    expect(screen.getByText(new Date('2026-09-14T00:00:00Z').toLocaleDateString(undefined, { timeZone: 'UTC' }))).toHaveClass(
+      'line-through',
+    )
+  })
+
+  it('does not strike through the issue date when it is unchanged', async () => {
+    mocked.document.mockImplementation(async (id: number) => makeDetail({ id, suggestion: { createdDate: '2026-09-14' } }))
+    renderScreen()
+    await screen.findByLabelText('Issue date')
+    expect(screen.queryByText(new Date('2026-09-14T00:00:00Z').toLocaleDateString(undefined, { timeZone: 'UTC' }))).toBeNull()
+  })
+
+  it('applies an edited issue date', async () => {
+    const user = renderScreen()
+    fireEvent.change(await screen.findByLabelText('Issue date'), { target: { value: '2026-09-01' } })
+    await user.click(screen.getByRole('button', { name: /Apply/ }))
+    expect(mocked.apply).toHaveBeenCalledWith(1, expect.objectContaining({ created: '2026-09-01' }))
+  })
+
   it('applies with Enter and moves to the next document', async () => {
     const user = renderScreen()
     await screen.findByDisplayValue('Telekom Rechnung 1')
@@ -81,6 +103,7 @@ describe('ReviewScreen', () => {
     expect(await screen.findByDisplayValue('Telekom Rechnung 2')).toBeInTheDocument()
     expect(mocked.apply).toHaveBeenCalledWith(1, {
       title: 'Telekom Rechnung 1',
+      created: '2026-09-12',
       correspondent: { id: 10 },
       tags: [{ id: 2 }, { name: 'Mobilfunk' }],
       expectedModified: '2026-09-14T10:00:01+02:00',

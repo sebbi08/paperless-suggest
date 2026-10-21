@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { PaperlessClient } from '../paperless/client'
 import type { PaperlessDocument, Vocabulary } from '../paperless/types'
 import type { SuggestionStore } from '../store/suggestions'
+import { isIsoDate } from '../suggest/schema'
 
 const EntityRefSchema = z.union([
   z.object({ id: z.number().int().positive() }),
@@ -10,6 +11,8 @@ const EntityRefSchema = z.union([
 
 export const ApplyRequestSchema = z.object({
   title: z.string().trim().min(1).max(128),
+  /** Issue date as YYYY-MM-DD; left unchanged in Paperless when omitted */
+  created: z.string().refine(isIsoDate, 'expected a date as YYYY-MM-DD').optional(),
   correspondent: EntityRefSchema.nullable(),
   tags: z.array(EntityRefSchema).max(50),
   expectedModified: z.string().min(1),
@@ -67,7 +70,12 @@ export async function applySuggestion(
     if (id !== vocab.inboxTagId && !tags.includes(id)) tags.push(id)
   }
 
-  const document = await paperless.updateDocument(documentId, { title: req.title, correspondent, tags })
+  const document = await paperless.updateDocument(documentId, {
+    title: req.title,
+    ...(req.created ? { created: req.created } : {}),
+    correspondent,
+    tags,
+  })
   store.markApplied(documentId)
   return { kind: 'applied', document }
 }

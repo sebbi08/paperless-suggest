@@ -2,6 +2,7 @@ import type { ModelSummary, TitleChecks } from './metrics'
 
 export interface ReportCell {
   title: string | null
+  createdDate: string | null
   correspondent: string | null
   tags: string[]
   proposed: string[]
@@ -12,7 +13,7 @@ export interface ReportCell {
 
 export interface ReportRow {
   documentId: number
-  truth: { title: string; correspondent: string; tags: string[] }
+  truth: { title: string; createdDate: string; correspondent: string; tags: string[] }
   byModel: Record<string, ReportCell>
 }
 
@@ -25,7 +26,7 @@ function cell(c: ReportCell | undefined): string {
   if (c.error) return `<td class="err">${esc(c.error)}</td>`
   const failed = c.checks ? Object.entries(c.checks).filter(([, ok]) => !ok).map(([k]) => k.replace(/Ok$/, '?')) : []
   return `<td><b>${esc(c.title ?? '')}</b>${failed.length ? ` <span class="warn">${failed.join(' ')}</span>` : ''}
-<br>${esc(c.correspondent ?? '—')}<br>${c.tags.map(esc).join(', ')}${c.proposed.map((p) => ` <span class="new">NEW: ${esc(p)}</span>`).join('')}
+<br>${esc(c.createdDate ?? 'no date')}<br>${esc(c.correspondent ?? '—')}<br>${c.tags.map(esc).join(', ')}${c.proposed.map((p) => ` <span class="new">NEW: ${esc(p)}</span>`).join('')}
 <br><small>${c.seconds.toFixed(1)} s</small></td>`
 }
 
@@ -34,13 +35,13 @@ export function renderReport(input: { generatedAt: string; summaries: ModelSumma
   const summaryRows = input.summaries
     .map(
       (s) =>
-        `<tr><td>${esc(s.model)}</td><td>${s.documents}</td><td>${pct(s.correspondentAccuracy)}</td><td>${pct(s.tagPrecision)}</td><td>${pct(s.tagRecall)}</td><td>${pct(s.tagF1)}</td><td>${pct(s.newNameRate)}</td><td>${pct(s.failureRate)}</td><td>${pct(s.titleChecksPassRate)}</td><td>${s.avgSeconds.toFixed(1)} s</td></tr>`,
+        `<tr><td>${esc(s.model)}</td><td>${s.documents}</td><td>${pct(s.correspondentAccuracy)}</td><td>${pct(s.dateAccuracy)}</td><td>${pct(s.tagPrecision)}</td><td>${pct(s.tagRecall)}</td><td>${pct(s.tagF1)}</td><td>${pct(s.newNameRate)}</td><td>${pct(s.failureRate)}</td><td>${pct(s.titleChecksPassRate)}</td><td>${s.avgSeconds.toFixed(1)} s</td></tr>`,
     )
     .join('\n')
   const detailRows = input.rows
     .map(
       (r) =>
-        `<tr><td>#${r.documentId}<br><b>${esc(r.truth.title)}</b><br>${esc(r.truth.correspondent)}<br>${r.truth.tags.map(esc).join(', ')}</td>${models.map((m) => cell(r.byModel[m])).join('')}</tr>`,
+        `<tr><td>#${r.documentId}<br><b>${esc(r.truth.title)}</b><br>${esc(r.truth.createdDate)}<br>${esc(r.truth.correspondent)}<br>${r.truth.tags.map(esc).join(', ')}</td>${models.map((m) => cell(r.byModel[m])).join('')}</tr>`,
     )
     .join('\n')
   return `<!doctype html>
@@ -54,7 +55,7 @@ th{background:#f5f5f5}
 </style></head><body>
 <h1>Model evaluation</h1><p>Generated ${esc(input.generatedAt)}</p>
 <h2>Summary</h2>
-<table><tr><th>Model</th><th>Docs</th><th>Correspondent acc.</th><th>Tag precision</th><th>Tag recall</th><th>Tag F1</th><th>New-name rate</th><th>Failures</th><th>Title checks</th><th>Avg time</th></tr>
+<table><tr><th>Model</th><th>Docs</th><th>Correspondent acc.</th><th>Date acc.</th><th>Tag precision</th><th>Tag recall</th><th>Tag F1</th><th>New-name rate</th><th>Failures</th><th>Title checks</th><th>Avg time</th></tr>
 ${summaryRows}
 </table>
 <h2>Per document</h2>

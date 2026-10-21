@@ -43,6 +43,17 @@ describe('applySuggestion', () => {
     expect(store.get(100)?.status).toBe('applied')
   })
 
+  it('writes the issue date when one is given', async () => {
+    const { paperless, apply } = setup()
+    await apply(req({ created: '2026-09-12' }))
+    expect(paperless.updateDocument).toHaveBeenCalledWith(100, {
+      title: 'Telekom Rechnung',
+      created: '2026-09-12',
+      correspondent: 10,
+      tags: [2, 3],
+    })
+  })
+
   it('creates new tags and correspondents the user kept', async () => {
     const { paperless, apply } = setup()
     await apply(req({ correspondent: { name: 'Neue Firma' }, tags: [{ id: 2 }, { name: 'Mobilfunk' }] }))
@@ -100,6 +111,13 @@ describe('ApplyRequestSchema', () => {
   it('accepts ids and names and trims the title', () => {
     const r = ApplyRequestSchema.parse({ title: ' T ', correspondent: { name: 'X' }, tags: [{ id: 1 }, { name: 'Y' }], expectedModified: 'm' })
     expect(r.title).toBe('T')
+  })
+
+  it('accepts only real dates as issue date', () => {
+    const base = { title: 'T', correspondent: null, tags: [], expectedModified: 'm' }
+    expect(ApplyRequestSchema.parse({ ...base, created: '2026-09-12' }).created).toBe('2026-09-12')
+    expect(ApplyRequestSchema.safeParse({ ...base, created: '2026-02-30' }).success).toBe(false)
+    expect(ApplyRequestSchema.safeParse({ ...base, created: '12.09.2026' }).success).toBe(false)
   })
 
   it('rejects blank or too long titles and empty names', () => {

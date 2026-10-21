@@ -9,6 +9,8 @@ export type CorrespondentEntry = EntityEntry | null
 
 export interface EditState {
   title: string
+  /** Issue date as YYYY-MM-DD; empty leaves Paperless's date unchanged */
+  created: string
   correspondent: CorrespondentEntry
   tags: TagEntry[]
 }
@@ -22,7 +24,7 @@ export function initialEditState(detail: DocumentDetail): EditState {
     doc.correspondentId === null ? null : { kind: 'existing', id: doc.correspondentId }
 
   if (!s || s.status !== 'ready') {
-    return { title: doc.title, correspondent: currentCorrespondent, tags: currentTags }
+    return { title: doc.title, created: doc.created, correspondent: currentCorrespondent, tags: currentTags }
   }
 
   const existing = (id: number, list: NamedRef[]): EntityEntry => {
@@ -42,7 +44,7 @@ export function initialEditState(detail: DocumentDetail): EditState {
   for (const id of s.tagIds) if (!hasExisting(tags, id)) tags.push(existing(id, v.tags))
   for (const p of s.proposedTags) tags.push({ kind: 'new', name: p.name, nearest: p.nearest })
 
-  return { title: s.title ?? doc.title, correspondent, tags }
+  return { title: s.title ?? doc.title, created: s.createdDate ?? doc.created, correspondent, tags }
 }
 
 export function removeTagAt(tags: TagEntry[], index: number): TagEntry[] {
@@ -77,6 +79,7 @@ export function toApplyRequest(state: EditState, expectedModified: string): Appl
   const ref = (e: EntityEntry) => (e.kind === 'existing' ? { id: e.id } : { name: e.name.trim() })
   return {
     title: state.title.trim(),
+    ...(state.created ? { created: state.created } : {}),
     correspondent: state.correspondent === null ? null : ref(state.correspondent),
     tags: state.tags.map(ref),
     expectedModified,

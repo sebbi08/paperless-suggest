@@ -13,6 +13,9 @@ export interface Config {
   appPassword: string | null
   authDisabled: boolean
   pollIntervalSec: number
+  llmConcurrency: number
+  /** null leaves LM Studio's load settings alone */
+  llmContextLength: number | null
   maxContentChars: number
   newNameMatchThreshold: number
   dataDir: string
@@ -28,6 +31,8 @@ const EnvSchema = z.object({
   APP_PASSWORD: z.string().optional(),
   AUTH_DISABLED: z.enum(['true', 'false', '1', '0']).optional(),
   POLL_INTERVAL: z.coerce.number().int().positive().default(300),
+  LLM_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(1),
+  LLM_CONTEXT_LENGTH: z.coerce.number().int().min(2048).optional(),
   MAX_CONTENT_CHARS: z.coerce.number().int().positive().default(6000),
   NEW_NAME_MATCH_THRESHOLD: z.coerce.number().min(0).max(1).default(0.85),
   DATA_DIR: z.string().default('/data'),
@@ -63,6 +68,8 @@ export function loadConfig(
     appPassword: e.APP_PASSWORD ?? null,
     authDisabled,
     pollIntervalSec: e.POLL_INTERVAL,
+    llmConcurrency: e.LLM_CONCURRENCY,
+    llmContextLength: e.LLM_CONTEXT_LENGTH ?? null,
     maxContentChars: e.MAX_CONTENT_CHARS,
     newNameMatchThreshold: e.NEW_NAME_MATCH_THRESHOLD,
     dataDir: e.DATA_DIR,

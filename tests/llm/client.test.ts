@@ -50,6 +50,71 @@ describe('LlmClient.health', () => {
   })
 })
 
+describe('LlmClient.health with a context length', () => {
+  const instance = (contextLength: number, id = 'gemma-4-12b') => ({ id, config: { context_length: contextLength, parallel: 4 } })
+  function lmStudio(instances: ReturnType<typeof instance>[], load: () => Response = () => HttpResponse.json({ status: 'loaded' })) {
+    const calls: { path: string; body: unknown }[] = []
+    server.use(
+      modelsList,
+      v0Models([{ id: 'gemma-4-12b', type: 'llm', state: instances.length ? 'loaded' : 'not-loaded' }]),
+      http.get(`${ROOT}/api/v1/models`, () =>
+        HttpResponse.json({
+          models: [
+            { type: 'llm', key: 'other-model', loaded_instances: [] },
+            { type: 'llm', key: 'gemma-4-12b', loaded_instances: instances },
+          ],
+        }),
+      ),
+      http.post(`${ROOT}/api/v1/models/unload`, async ({ request }) => {
+        calls.push({ path: 'unload', body: await request.json() })
+        return HttpResponse.json({ instance_id: 'x' })
+      }),
+      http.post(`${ROOT}/api/v1/models/load`, async ({ request }) => {
+        calls.push({ path: 'load', body: await request.json() })
+        return load()
+      }),
+    )
+    return calls
+  }
+  const client = (model: string | null = 'gemma-4-12b') => createLlmClient({ baseUrl: BASE, model, contextLength: 16384 })
+
+  it('loads a model that is not loaded with the configured context length', async () => {
+    const calls = lmStudio([])
+    expect(await client().health()).toEqual({ ok: true, model: 'gemma-4-12b' })
+    expect(calls).toEqual([{ path: 'load', body: { model: 'gemma-4-12b', context_length: 16384 } }])
+  })
+
+  it('reloads a model loaded with a smaller context', async () => {
+    const calls = lmStudio([instance(8192), instance(4096, 'gemma-4-12b:2')])
+    expect(await client().health()).toEqual({ ok: true, model: 'gemma-4-12b' })
+    expect(calls).toEqual([
+      { path: 'unload', body: { instance_id: 'gemma-4-12b' } },
+      { path: 'unload', body: { instance_id: 'gemma-4-12b:2' } },
+      { path: 'load', body: { model: 'gemma-4-12b', context_length: 16384 } },
+    ])
+  })
+
+  it('leaves a model alone that already has at least that context', async () => {
+    const calls = lmStudio([instance(32768)])
+    expect(await client().health()).toEqual({ ok: true, model: 'gemma-4-12b' })
+    expect(calls).toEqual([])
+  })
+
+  it('uses the loaded model when LLM_MODEL is not set', async () => {
+    const calls = lmStudio([instance(8192)])
+    expect(await client(null).health()).toEqual({ ok: true, model: 'gemma-4-12b' })
+    expect(calls.map((c) => c.path)).toEqual(['unload', 'load'])
+  })
+
+  it('reports a failed load as not ok', async () => {
+    lmStudio([], () => HttpResponse.json({ error: 'Not enough VRAM' }, { status: 500 }))
+    expect(await client().health()).toEqual({
+      ok: false,
+      error: expect.stringMatching(/Could not load gemma-4-12b with context length 16384:.*Not enough VRAM/),
+    })
+  })
+})
+
 describe('LlmClient.complete', () => {
   it('sends a strict json_schema response_format and returns the content', async () => {
     let body: Record<string, unknown> = {}

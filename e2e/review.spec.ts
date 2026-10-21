@@ -13,6 +13,7 @@ const detail = (id: number) => ({
   document: {
     id,
     title: `scan_${id}`,
+    created: '2026-09-14',
     content: `OCR text ${id} `.repeat(200),
     correspondentId: null,
     tagIds: [1],
@@ -23,6 +24,7 @@ const detail = (id: number) => ({
     documentId: id,
     status: 'ready',
     title: `Telekom Rechnung ${id}`,
+    createdDate: '2026-09-12',
     correspondentId: 10,
     proposedCorrespondent: null,
     tagIds: [2],
@@ -71,11 +73,13 @@ test('apply & next walks through the inbox', async ({ page }) => {
   const applied = await mockApi(page)
   await page.goto('/')
   await expect(page.getByLabel('Title')).toHaveValue('Telekom Rechnung 1')
+  await expect(page.getByLabel('Issue date')).toHaveValue('2026-09-12')
   await page.getByRole('button', { name: 'Use Telefon/Internet instead of Mobilfunk' }).click()
   await page.getByRole('button', { name: /^Apply/ }).click()
   await expect(page.getByLabel('Title')).toHaveValue('Telekom Rechnung 2')
   expect(applied[0]).toEqual({
     title: 'Telekom Rechnung 1',
+    created: '2026-09-12',
     correspondent: { id: 10 },
     tags: [{ id: 2 }, { id: 3 }],
     expectedModified: 'm1',

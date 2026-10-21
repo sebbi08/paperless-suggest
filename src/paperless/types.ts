@@ -4,6 +4,7 @@ export interface PaperlessDocument {
   content: string
   correspondent: number | null
   tags: number[]
+  /** Issue date ("Ausstellungsdatum") as YYYY-MM-DD */
   created: string
   added: string
   modified: string
@@ -26,6 +27,8 @@ export interface DocumentPatch {
   title?: string
   correspondent?: number | null
   tags?: number[]
+  /** YYYY-MM-DD */
+  created?: string
 }
 
 /** Current tags (including the inbox tag) and correspondents. */

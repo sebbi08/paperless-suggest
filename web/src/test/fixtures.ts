@@ -8,6 +8,7 @@ export function makeDetail(
     document: {
       id,
       title: `scan_${id}`,
+      created: '2026-09-14',
       content: `Deutsche Telekom AG Rechnung ${id}`,
       correspondentId: null,
       tagIds: [1],
@@ -22,6 +23,7 @@ export function makeDetail(
             documentId: id,
             status: 'ready',
             title: `Telekom Rechnung ${id}`,
+            createdDate: '2026-09-12',
             correspondentId: 10,
             proposedCorrespondent: null,
             tagIds: [2],

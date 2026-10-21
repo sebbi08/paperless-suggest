@@ -7,6 +7,7 @@ export interface StoredSuggestion {
   documentId: number
   status: SuggestionStatus
   title: string | null
+  createdDate: string | null
   correspondentId: number | null
   proposedCorrespondent: Proposal | null
   tagIds: number[]
@@ -43,6 +44,7 @@ interface Row {
   status: SuggestionStatus
   added: string
   title: string | null
+  created_date: string | null
   correspondent_id: number | null
   proposed_correspondent: string | null
   tag_ids: string
@@ -104,13 +106,15 @@ export class SuggestionStore {
     return r?.stale === 1
   }
 
-  nextWork(): number | null {
+  /** Next document to suggest for; ids in `busy` are being worked on and skipped. */
+  nextWork(busy: ReadonlySet<number> = new Set()): number | null {
     const row = this.db
       .prepare(
         `SELECT document_id FROM suggestions WHERE in_inbox = 1 AND (status = 'pending' OR stale = 1)
+         AND document_id NOT IN (SELECT value FROM json_each(?))
          ORDER BY priority DESC, added ASC, document_id ASC LIMIT 1`,
       )
-      .get() as { document_id: number } | undefined
+      .get(JSON.stringify([...busy])) as { document_id: number } | undefined
     return row?.document_id ?? null
   }
 
@@ -119,7 +123,7 @@ export class SuggestionStore {
     this.db
       .prepare(
         `UPDATE suggestions SET
-           status = @status, title = @title, correspondent_id = @correspondentId,
+           status = @status, title = @title, created_date = @createdDate, correspondent_id = @correspondentId,
            proposed_correspondent = @proposedCorrespondent, tag_ids = @tagIds, proposed_tags = @proposedTags,
            matched_notes = @matchedNotes, model = @model, error = @error,
            content_hash = @contentHash, vocab_hash = @vocabHash, doc_modified = @docModified,
@@ -130,6 +134,7 @@ export class SuggestionStore {
         documentId,
         status: result.kind === 'ok' ? 'ready' : result.kind,
         title: s?.title ?? null,
+        createdDate: s?.createdDate ?? null,
         correspondentId: s?.correspondentId ?? null,
         proposedCorrespondent: s?.proposedCorrespondent ? JSON.stringify(s.proposedCorrespondent) : null,
         tagIds: JSON.stringify(s?.tagIds ?? []),
@@ -151,6 +156,7 @@ export class SuggestionStore {
       documentId: r.document_id,
       status: r.status,
       title: r.title,
+      createdDate: r.created_date,
       correspondentId: r.correspondent_id,
       proposedCorrespondent: r.proposed_correspondent ? (JSON.parse(r.proposed_correspondent) as Proposal) : null,
       tagIds: JSON.parse(r.tag_ids) as number[],

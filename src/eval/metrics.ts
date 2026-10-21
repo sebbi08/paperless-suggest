@@ -3,6 +3,7 @@ import type { SuggestResult } from '../suggest/types'
 export interface GroundTruth {
   documentId: number
   title: string
+  createdDate: string
   correspondentId: number
   tagIds: number[]
   content: string
@@ -26,6 +27,8 @@ export interface ModelSummary {
   model: string
   documents: number
   correspondentAccuracy: number
+  /** suggested issue date equals the filed document's date */
+  dateAccuracy: number
   tagPrecision: number
   tagRecall: number
   tagF1: number
@@ -97,6 +100,7 @@ const ratio = (a: number, b: number) => (b === 0 ? 0 : a / b)
 
 export function summarize(model: string, cases: EvalCase[]): ModelSummary {
   let correct = 0
+  let datesCorrect = 0
   let truePositives = 0
   let predicted = 0
   let truthTotal = 0
@@ -111,6 +115,7 @@ export function summarize(model: string, cases: EvalCase[]): ModelSummary {
     const s = c.outcome.suggestion
     succeeded++
     if (s.correspondentId === c.truth.correspondentId) correct++
+    if (s.createdDate === c.truth.createdDate) datesCorrect++
     predicted += s.tagIds.length
     truePositives += s.tagIds.filter((id) => c.truth.tagIds.includes(id)).length
     if (s.proposedCorrespondent || s.proposedTags.length > 0) withProposals++
@@ -123,6 +128,7 @@ export function summarize(model: string, cases: EvalCase[]): ModelSummary {
     model,
     documents: cases.length,
     correspondentAccuracy: ratio(correct, cases.length),
+    dateAccuracy: ratio(datesCorrect, cases.length),
     tagPrecision: precision,
     tagRecall: recall,
     tagF1: ratio(2 * precision * recall, precision + recall),

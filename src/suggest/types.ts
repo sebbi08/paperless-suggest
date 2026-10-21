@@ -3,6 +3,7 @@ import type { NearMatch } from './normalize'
 
 export interface Example {
   title: string
+  createdDate: string
   correspondent: string | null
   tags: string[]
   content: string
@@ -16,6 +17,8 @@ export interface Proposal {
 
 export interface Suggestion {
   title: string
+  /** Issue date as YYYY-MM-DD, null when the document names none */
+  createdDate: string | null
   correspondentId: number | null
   proposedCorrespondent: Proposal | null
   tagIds: number[]

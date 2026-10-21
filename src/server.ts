@@ -29,7 +29,7 @@ async function main(): Promise<void> {
   const db = openDb(path.join(config.dataDir, 'paperless-suggest.sqlite'))
   const store = new SuggestionStore(db)
   const paperless = createPaperlessClient({ baseUrl: config.paperlessUrl, token: config.paperlessToken })
-  const llm = createLlmClient({ baseUrl: config.llmBaseUrl, model: config.llmModel })
+  const llm = createLlmClient({ baseUrl: config.llmBaseUrl, model: config.llmModel, contextLength: config.llmContextLength })
   const suggester = createSuggester({
     llm,
     maxContentChars: config.maxContentChars,
@@ -42,6 +42,7 @@ async function main(): Promise<void> {
     store,
     inboxTag: config.inboxTag,
     pollIntervalSec: config.pollIntervalSec,
+    llmConcurrency: config.llmConcurrency,
   })
 
   try {

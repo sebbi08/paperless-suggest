@@ -8,8 +8,9 @@ const filed = (id: number, correspondent: number | null = 10) =>
 
 describe('toExample', () => {
   it('resolves names and drops the inbox tag', () => {
-    expect(toExample(makeDocument({ correspondent: 10, tags: [1, 2] }), v)).toMatchObject({
+    expect(toExample(makeDocument({ correspondent: 10, tags: [1, 2], created: '2026-09-12' }), v)).toMatchObject({
       title: 'scan_0001',
+      createdDate: '2026-09-12',
       correspondent: 'Deutsche Telekom AG',
       tags: ['Rechnung'],
     })

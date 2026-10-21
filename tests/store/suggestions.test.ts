@@ -7,6 +7,7 @@ const ok: SuggestResult = {
   kind: 'ok',
   suggestion: {
     title: 'Telekom Rechnung',
+    createdDate: '2026-09-14',
     correspondentId: 10,
     proposedCorrespondent: null,
     tagIds: [2],
@@ -34,6 +35,12 @@ describe('SuggestionStore', () => {
     expect(store.counts()).toEqual({ ready: 0, pending: 2, error: 0, noText: 0 })
   })
 
+  it('skips documents that are already being worked on', () => {
+    store.syncInbox([item(1, '2026-09-01'), item(2, '2026-09-02'), item(3, '2026-09-03')], 'v1')
+    expect(store.nextWork(new Set([1]))).toBe(2)
+    expect(store.nextWork(new Set([1, 2, 3]))).toBeNull()
+  })
+
   it('stores and returns a suggestion', () => {
     store.syncInbox([item(1, '2026-09-01')], 'v1')
     store.saveResult(1, ok, meta())
@@ -41,6 +48,7 @@ describe('SuggestionStore', () => {
       documentId: 1,
       status: 'ready',
       title: 'Telekom Rechnung',
+      createdDate: '2026-09-14',
       correspondentId: 10,
       proposedCorrespondent: null,
       tagIds: [2],

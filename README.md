@@ -1,6 +1,6 @@
 # Paperless Suggest
 
-Suggests **title, correspondent and tags** for documents in your Paperless-ngx inbox using a
+Suggests **title, issue date, correspondent and tags** for documents in your Paperless-ngx inbox using a
 local LLM in [LM Studio](https://lmstudio.ai). Nothing changes in Paperless until you press
 **Apply** in the review screen, which works on desktop and on mobile.
 
@@ -9,7 +9,9 @@ local LLM in [LM Studio](https://lmstudio.ai). Nothing changes in Paperless unti
   **NEW** proposal with the closest existing names offered as one-tap alternatives.
 - Suggestions are computed in the background whenever LM Studio is reachable, so reviewing never
   waits for the model.
-- Apply writes title, correspondent and tags and removes the inbox tag.
+- The issue date ("Ausstellungsdatum", Paperless's *created* date) is read from the document text.
+  The review screen shows Paperless's current date struck through when the suggestion differs.
+- Apply writes title, issue date, correspondent and tags and removes the inbox tag.
 
 Design: `docs/superpowers/specs/2026-09-29-paperless-suggest-design.md`
 
@@ -42,11 +44,28 @@ For access from your phone outside your home network, use the same path you use 
 | `APP_PASSWORD` | required unless `AUTH_DISABLED` | Login password |
 | `AUTH_DISABLED` | `false` | Skip built-in login (behind an authenticating proxy only) |
 | `POLL_INTERVAL` | `300` | Seconds between inbox polls |
+| `LLM_CONCURRENCY` | `1` | Documents sent to the LLM at the same time (one document per request) |
+| `LLM_CONTEXT_LENGTH` | LM Studio's setting | Context length the model is loaded with; see below |
 | `MAX_CONTENT_CHARS` | `6000` | OCR text sent to the model |
 | `NEW_NAME_MATCH_THRESHOLD` | `0.85` | Similarity above which a proposed new name is mapped to an existing one |
 | `DATA_DIR` | `/data` | SQLite location |
 | `USERMAP_UID` / `USERMAP_GID` | `1000` | Owner of the data directory; the app runs as this user |
 | `PORT` | `3000` | HTTP port |
+
+### Parallel suggestions
+
+With `LLM_CONCURRENCY` above 1, several documents are sent to LM Studio at once. They only run in
+parallel if the model is loaded with **Max Concurrent Predictions** (model load settings) at least
+as high; otherwise LM Studio queues them.
+
+Parallel requests share the model's context. One document needs up to about 6–7k tokens (prompt
+plus the model's answer, including reasoning), so the context must be at least
+`LLM_CONCURRENCY × 8192`, or requests fail with "Context size has been exceeded". Set
+`LLM_CONTEXT_LENGTH` (e.g. `16384` for two at a time) and the app checks before every run
+whether the model is loaded with at least that context. If not, it unloads the model and loads it
+again with that context through LM Studio's REST API (LM Studio 0.4 or newer). This also affects
+other programs using that model in LM Studio at the time. A larger context needs more VRAM; if
+the load fails, the error is shown in the status bar.
 
 ## Choosing a model
 
@@ -62,7 +81,7 @@ node --env-file=.env --import tsx src/eval/run.ts --models qwen3-14b,gemma-3-12b
 In Docker: `docker compose exec paperless-suggest node dist/eval.js --models qwen3-14b --sample 50`.
 Reports are written to `/data/eval-results` inside the data volume (`DATA_DIR/eval-results`).
 
-The HTML report in `eval-results/` shows, per model: correspondent accuracy, tag
+The HTML report in `eval-results/` shows, per model: correspondent accuracy, issue-date accuracy, tag
 precision/recall/F1, **new-name rate** (how often it proposed a new tag or correspondent even
 though an existing one was correct), failure rate, title checks and seconds per document. It also
 lists every document's titles side by side, so you can judge them yourself. Set the winner as

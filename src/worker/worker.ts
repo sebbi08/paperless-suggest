@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { LlmError, type LlmClient } from '../llm/client'
+import { LlmError, type LlmClient, type LlmHealth } from '../llm/client'
 import type { PaperlessClient } from '../paperless/client'
 import type { PaperlessDocument, Vocabulary } from '../paperless/types'
 import { hashVocabulary, loadVocabulary } from '../paperless/vocabulary'
@@ -23,6 +23,8 @@ export interface WorkerDeps {
   store: SuggestionStore
   inboxTag: string | null
   pollIntervalSec: number
+  /** Suggestions requested from the LLM at the same time (default 1) */
+  llmConcurrency?: number
   logger?: Pick<Console, 'info' | 'warn' | 'error'>
   now?: () => Date
 }
@@ -94,28 +96,49 @@ export class Worker {
     this.llmState = { ok: true, model: health.model, error: null }
     this.backoffMs = 0
 
-    for (let id = store.nextWork(); id !== null && !this.stopped; id = store.nextWork()) {
-      let doc: PaperlessDocument | undefined
-      try {
-        doc = byId.get(id) ?? (await paperless.getDocument(id))
-        const examples = await loadExamples(paperless, vocab, doc.content, new Set([doc.id]))
-        const result = await suggester.suggest({ content: doc.content, vocabulary: vocab, examples })
-        store.saveResult(id, result, metaFor(doc))
-        this.log.info(`Document ${id}: ${result.kind}`)
-      } catch (e) {
-        if (e instanceof LlmError && doc) {
-          const again = await llm.health()
-          if (again.ok) {
-            store.saveResult(id, { kind: 'error', error: e.message, model: null }, metaFor(doc))
-            this.log.warn(`Document ${id}: ${e.message}`)
-            continue
-          }
-          this.llmDown(again.error)
-        } else if (e instanceof LlmError) this.llmDown(e.message)
-        else this.paperlessDown(e)
-        return
+    // Up to llmConcurrency lanes take documents from the queue; `busy` keeps two lanes off the same one.
+    const busy = new Set<number>()
+    let halted = false
+    // While a lane checks whether the LLM is still up after an error, the others start nothing new.
+    let recheck: Promise<LlmHealth> | null = null
+    const halt = (report: () => void) => {
+      if (!halted) report()
+      halted = true
+    }
+
+    const lane = async (): Promise<void> => {
+      while (!this.stopped && !halted) {
+        if (recheck) await recheck
+        if (halted) return
+        const id = store.nextWork(busy)
+        if (id === null) return
+        busy.add(id)
+        let doc: PaperlessDocument | undefined
+        try {
+          doc = byId.get(id) ?? (await paperless.getDocument(id))
+          const examples = await loadExamples(paperless, vocab, doc.content, new Set([doc.id]))
+          const result = await suggester.suggest({ content: doc.content, vocabulary: vocab, examples })
+          store.saveResult(id, result, metaFor(doc))
+          this.log.info(`Document ${id}: ${result.kind}`)
+        } catch (e) {
+          if (e instanceof LlmError && doc) {
+            recheck ??= llm.health().finally(() => (recheck = null))
+            const again = await recheck
+            if (again.ok) {
+              store.saveResult(id, { kind: 'error', error: e.message, model: null }, metaFor(doc))
+              this.log.warn(`Document ${id}: ${e.message}`)
+              continue
+            }
+            halt(() => this.llmDown(again.error))
+          } else if (e instanceof LlmError) halt(() => this.llmDown(e.message))
+          else halt(() => this.paperlessDown(e))
+          return
+        } finally {
+          busy.delete(id)
+        }
       }
     }
+    await Promise.all(Array.from({ length: this.deps.llmConcurrency ?? 1 }, lane))
   }
 
   start(): void {

@@ -9,6 +9,8 @@ const NAME_MAX = 128
 
 export interface RawSuggestion {
   title: string
+  /** YYYY-MM-DD */
+  created_date: string | null
   correspondent: string | null
   proposed_new_correspondent: string | null
   tags: string[]
@@ -21,9 +23,10 @@ export function buildSuggestionSchema(v: Vocabulary): Record<string, unknown> {
   return {
     type: 'object',
     additionalProperties: false,
-    required: ['title', 'correspondent', 'proposed_new_correspondent', 'tags', 'proposed_new_tags'],
+    required: ['title', 'created_date', 'correspondent', 'proposed_new_correspondent', 'tags', 'proposed_new_tags'],
     properties: {
       title: { type: 'string', minLength: 1, maxLength: TITLE_MAX },
+      created_date: { anyOf: [{ type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, { type: 'null' }] },
       correspondent:
         correspondentNames.length > 0
           ? { anyOf: [{ type: 'string', enum: correspondentNames }, { type: 'null' }] }
@@ -40,6 +43,13 @@ export function buildSuggestionSchema(v: Vocabulary): Record<string, unknown> {
       },
     },
   }
+}
+
+/** A calendar date as YYYY-MM-DD that actually exists (no 2026-02-30). */
+export function isIsoDate(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false
+  const d = new Date(`${s}T00:00:00Z`)
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s
 }
 
 /** Removes reasoning blocks, code fences and surrounding prose some models emit. */
@@ -66,6 +76,7 @@ export function parseSuggestionOutput(
   const correspondentNames = new Set(v.correspondents.map((c) => c.name))
   const schema = z.object({
     title: z.string().trim().min(1),
+    created_date: z.unknown().optional(),
     correspondent: z
       .string()
       .nullable()
@@ -83,6 +94,7 @@ export function parseSuggestionOutput(
     ok: true,
     value: {
       title: p.title.length > TITLE_MAX ? p.title.slice(0, TITLE_MAX).trimEnd() : p.title,
+      created_date: typeof p.created_date === 'string' && isIsoDate(p.created_date) ? p.created_date : null,
       correspondent: p.correspondent,
       proposed_new_correspondent: p.proposed_new_correspondent ?? null,
       tags: [...new Set(p.tags)],

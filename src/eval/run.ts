@@ -86,6 +86,7 @@ export async function runEval(deps: {
     documentId: d.id,
     truth: {
       title: d.title,
+      createdDate: d.created,
       correspondent: correspondentName.get(d.correspondent!) ?? '',
       tags: names(d.tags.filter((t) => t !== vocab.inboxTagId)),
     },
@@ -106,10 +107,11 @@ export async function runEval(deps: {
       }
       const seconds = (performance.now() - started) / 1000
       const truthTags = d.tags.filter((t) => t !== vocab.inboxTagId)
-      cases.push({ truth: { documentId: d.id, title: d.title, correspondentId: d.correspondent!, tagIds: truthTags, content: d.content }, outcome, seconds })
+      cases.push({ truth: { documentId: d.id, title: d.title, createdDate: d.created, correspondentId: d.correspondent!, tagIds: truthTags, content: d.content }, outcome, seconds })
       const s = outcome.kind === 'ok' ? outcome.suggestion : null
       rows[i]!.byModel[model] = {
         title: s?.title ?? null,
+        createdDate: s?.createdDate ?? null,
         correspondent: s?.correspondentId != null ? (correspondentName.get(s.correspondentId) ?? null) : null,
         tags: s ? names(s.tagIds) : [],
         proposed: s ? [...(s.proposedCorrespondent ? [s.proposedCorrespondent.name] : []), ...s.proposedTags.map((p) => p.name)] : [],
@@ -161,6 +163,7 @@ async function main(): Promise<void> {
     summaries.map((s) => ({
       model: s.model,
       corrAcc: s.correspondentAccuracy.toFixed(3),
+      dateAcc: s.dateAccuracy.toFixed(3),
       tagF1: s.tagF1.toFixed(3),
       newNames: s.newNameRate.toFixed(3),
       failures: s.failureRate.toFixed(3),

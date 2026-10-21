@@ -87,6 +87,9 @@ const kbd = 'ml-1 hidden font-mono text-xs opacity-70 desk:inline'
 
 const isDesktop = () => window.matchMedia?.('(min-width: 56.25rem) and (pointer: fine)').matches ?? true
 
+/** YYYY-MM-DD in the browser's locale, without shifting the day by the time zone. */
+const formatDate = (isoDate: string) => new Date(`${isoDate}T00:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC' })
+
 interface Notice {
   kind: 'modified' | 'missing' | 'failed'
   text: string
@@ -173,17 +176,34 @@ function ReviewForm({ detail, onNext, onReload }: { detail: DocumentDetail; onNe
           </Banner>
         )}
 
-        <div>
-          <label htmlFor="title" className="mb-1 block text-xs uppercase tracking-wide text-gray-500">
-            Title
-          </label>
-          <input
-            id="title"
-            value={edit.title}
-            onChange={(e) => setEdit((st) => ({ ...st, title: e.target.value }))}
-            className="w-full rounded border border-gray-300 px-2 py-2"
-          />
-          {doc.title !== edit.title && <span className="mt-1 block text-xs text-gray-400 line-through">{doc.title}</span>}
+        <div className="flex flex-col gap-5 desk:flex-row desk:gap-3">
+          <div className="flex-1">
+            <label htmlFor="title" className="mb-1 block text-xs uppercase tracking-wide text-gray-500">
+              Title
+            </label>
+            <input
+              id="title"
+              value={edit.title}
+              onChange={(e) => setEdit((st) => ({ ...st, title: e.target.value }))}
+              className="w-full rounded border border-gray-300 px-2 py-2"
+            />
+            {doc.title !== edit.title && <span className="mt-1 block text-xs text-gray-400 line-through">{doc.title}</span>}
+          </div>
+          <div>
+            <label htmlFor="created" className="mb-1 block text-xs uppercase tracking-wide text-gray-500">
+              Issue date
+            </label>
+            <input
+              id="created"
+              type="date"
+              value={edit.created}
+              onChange={(e) => setEdit((st) => ({ ...st, created: e.target.value }))}
+              className="w-full rounded border border-gray-300 px-2 py-2 desk:w-auto"
+            />
+            {edit.created && doc.created !== edit.created && (
+              <span className="mt-1 block text-xs text-gray-400 line-through">{formatDate(doc.created)}</span>
+            )}
+          </div>
         </div>
 
         <CorrespondentPicker

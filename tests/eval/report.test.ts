@@ -6,6 +6,7 @@ const summary = (model: string, f1: number): ModelSummary => ({
   model,
   documents: 2,
   correspondentAccuracy: 0.5,
+  dateAccuracy: 0.25,
   tagPrecision: 0.8,
   tagRecall: 0.6,
   tagF1: f1,
@@ -22,10 +23,10 @@ describe('renderReport', () => {
     rows: [
       {
         documentId: 7,
-        truth: { title: 'Rechnung <Telekom>', correspondent: 'Deutsche Telekom AG', tags: ['Rechnung'] },
+        truth: { title: 'Rechnung <Telekom>', createdDate: '2026-09-14', correspondent: 'Deutsche Telekom AG', tags: ['Rechnung'] },
         byModel: {
-          'qwen3-14b': { title: 'Telekom Rechnung', correspondent: 'Deutsche Telekom AG', tags: ['Rechnung'], proposed: ['Mobilfunk'], error: null, seconds: 3, checks: { lengthOk: true, languageOk: true, datesOk: false } },
-          'gemma-3-12b': { title: null, correspondent: null, tags: [], proposed: [], error: 'Invalid <output>', seconds: 1, checks: null },
+          'qwen3-14b': { title: 'Telekom Rechnung', createdDate: '2026-09-13', correspondent: 'Deutsche Telekom AG', tags: ['Rechnung'], proposed: ['Mobilfunk'], error: null, seconds: 3, checks: { lengthOk: true, languageOk: true, datesOk: false } },
+          'gemma-3-12b': { title: null, createdDate: null, correspondent: null, tags: [], proposed: [], error: 'Invalid <output>', seconds: 1, checks: null },
         },
       },
     ],
@@ -35,6 +36,8 @@ describe('renderReport', () => {
     expect(html).toContain('<td>qwen3-14b</td>')
     expect(html).toContain('70.0%')
     expect(html).toContain('3.3 s')
+    expect(html).toContain('<th>Date acc.</th>')
+    expect(html).toContain('25.0%')
   })
 
   it('shows per-document results side by side and escapes HTML', () => {
@@ -42,6 +45,8 @@ describe('renderReport', () => {
     expect(html).toContain('Invalid &lt;output&gt;')
     expect(html).toContain('NEW: Mobilfunk')
     expect(html).toContain('dates?')
+    expect(html).toContain('2026-09-14')
+    expect(html).toContain('2026-09-13')
     expect(html).not.toContain('<Telekom>')
   })
 })

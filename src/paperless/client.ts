@@ -47,7 +47,8 @@ const toDocument = (r: RawDocument): PaperlessDocument => ({
   content: r.content ?? '',
   correspondent: r.correspondent,
   tags: r.tags,
-  created: r.created,
+  // Paperless < 2.16 returns a datetime here, newer versions a date
+  created: r.created.slice(0, 10),
   added: r.added,
   modified: r.modified,
 })

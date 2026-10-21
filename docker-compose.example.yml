@@ -11,6 +11,8 @@ services:
       PAPERLESS_TOKEN: change-me                  # Paperless → Profile → API Auth Token
       LLM_BASE_URL: http://192.168.1.50:1234/v1   # LM Studio on your PC ("Serve on local network")
       # LLM_MODEL: qwen3-14b                      # optional; default = model loaded in LM Studio
+      # LLM_CONCURRENCY: 2                        # parallel suggestions; LM Studio "Max Concurrent Predictions" >= this
+      # LLM_CONTEXT_LENGTH: 16384                 # (re)load the model with this context; >= LLM_CONCURRENCY × 8192
       APP_PASSWORD: change-me
       # AUTH_DISABLED: "true"                     # only behind an authenticating reverse proxy
       # USERMAP_UID: 1000                         # owner of ./data on the host (created automatically)

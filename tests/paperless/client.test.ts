@@ -38,6 +38,7 @@ describe('PaperlessClient', () => {
     const docs = await client().listInboxDocuments(1)
     expect(docs.map((d) => d.id)).toEqual([1, 2])
     expect(docs[0]!.content).toBe('')
+    expect(docs[0]!.created).toBe('2026-09-01')
     expect(seen).toEqual(['Token secret', 'Token secret'])
   })
 
@@ -84,8 +85,8 @@ describe('PaperlessClient', () => {
     )
     expect(await client().createTag('Mobilfunk')).toEqual({ id: 7, name: 'Mobilfunk', isInboxTag: false, documentCount: 0 })
     expect(tagBody).toEqual({ name: 'Mobilfunk', matching_algorithm: 0 })
-    await client().updateDocument(5, { title: 'T', correspondent: null, tags: [2] })
-    expect(patchBody).toEqual({ title: 'T', correspondent: null, tags: [2] })
+    await client().updateDocument(5, { title: 'T', correspondent: null, tags: [2], created: '2026-08-31' })
+    expect(patchBody).toEqual({ title: 'T', correspondent: null, tags: [2], created: '2026-08-31' })
   })
 
   it('returns the raw response for files', async () => {

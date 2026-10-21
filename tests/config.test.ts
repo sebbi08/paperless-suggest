@@ -19,6 +19,8 @@ describe('loadConfig', () => {
       appPassword: 'pw',
       authDisabled: false,
       pollIntervalSec: 300,
+      llmConcurrency: 1,
+      llmContextLength: null,
       maxContentChars: 6000,
       newNameMatchThreshold: 0.85,
       dataDir: '/data',
@@ -60,6 +62,8 @@ describe('loadConfig', () => {
       LLM_MODEL: 'qwen3-14b',
       INBOX_TAG: 'Posteingang',
       POLL_INTERVAL: '60',
+      LLM_CONCURRENCY: '4',
+      LLM_CONTEXT_LENGTH: '32768',
       MAX_CONTENT_CHARS: '4000',
       NEW_NAME_MATCH_THRESHOLD: '0.9',
       DATA_DIR: './data',
@@ -69,11 +73,21 @@ describe('loadConfig', () => {
       llmModel: 'qwen3-14b',
       inboxTag: 'Posteingang',
       pollIntervalSec: 60,
+      llmConcurrency: 4,
+      llmContextLength: 32768,
       maxContentChars: 4000,
       newNameMatchThreshold: 0.9,
       dataDir: './data',
       port: 8080,
     })
+  })
+
+  it('rejects a concurrency below 1', () => {
+    expect(() => loadConfig({ ...base, LLM_CONCURRENCY: '0' })).toThrow(/LLM_CONCURRENCY/)
+  })
+
+  it('rejects a context length that cannot hold a prompt', () => {
+    expect(() => loadConfig({ ...base, LLM_CONTEXT_LENGTH: '1000' })).toThrow(/LLM_CONTEXT_LENGTH/)
   })
 
   it('rejects an out-of-range threshold', () => {

@@ -38,7 +38,7 @@ describe('runEval', () => {
   it('runs every model over the sample and never shows a sample doc as example', async () => {
     const v = makeVocabulary()
     const sampleDocs = [
-      makeDocument({ id: 1, correspondent: 10, tags: [2], content: 'SAMPLE-ONE Deutsche Telekom AG' }),
+      makeDocument({ id: 1, correspondent: 10, tags: [2], content: 'SAMPLE-ONE Deutsche Telekom AG', created: '2026-08-01' }),
       makeDocument({ id: 2, correspondent: 10, tags: [2, 3], content: 'SAMPLE-TWO Deutsche Telekom AG' }),
     ]
     const other = makeDocument({ id: 9, correspondent: 10, tags: [2], content: 'OTHER-DOC', title: 'Other' })
@@ -55,14 +55,14 @@ describe('runEval', () => {
         prompts.push(req)
         return {
           model: req.model ?? '?',
-          content: JSON.stringify({ title: 'Telekom Rechnung', correspondent: 'Deutsche Telekom AG', proposed_new_correspondent: null, tags: ['Rechnung'], proposed_new_tags: [] }),
+          content: JSON.stringify({ title: 'Telekom Rechnung', created_date: '2026-09-14', correspondent: 'Deutsche Telekom AG', proposed_new_correspondent: null, tags: ['Rechnung'], proposed_new_tags: [] }),
         }
       }),
     }
     const { summaries, rows } = await runEval({ paperless, llm, inboxTag: null, maxContentChars: 6000, matchThreshold: 0.85, models: ['a', 'b'], sample: 2 })
 
     expect(summaries.map((s) => s.model)).toEqual(['a', 'b'])
-    expect(summaries[0]).toMatchObject({ documents: 2, correspondentAccuracy: 1, failureRate: 0, tagPrecision: 1 })
+    expect(summaries[0]).toMatchObject({ documents: 2, correspondentAccuracy: 1, dateAccuracy: 0.5, failureRate: 0, tagPrecision: 1 })
     expect(summaries[0]!.tagRecall).toBeCloseTo(2 / 3)
     expect(prompts).toHaveLength(4)
     for (const p of prompts) {
@@ -71,7 +71,7 @@ describe('runEval', () => {
       expect(examples).not.toContain('SAMPLE-')
     }
     expect(rows.map((r) => r.documentId)).toEqual([2, 1])
-    expect(rows[0]!.truth).toEqual({ title: 'scan_0001', correspondent: 'Deutsche Telekom AG', tags: ['Rechnung', 'Telefon/Internet'] })
-    expect(rows[0]!.byModel.a).toMatchObject({ title: 'Telekom Rechnung', correspondent: 'Deutsche Telekom AG', tags: ['Rechnung'], error: null })
+    expect(rows[0]!.truth).toEqual({ title: 'scan_0001', createdDate: '2026-09-14', correspondent: 'Deutsche Telekom AG', tags: ['Rechnung', 'Telefon/Internet'] })
+    expect(rows[0]!.byModel.a).toMatchObject({ title: 'Telekom Rechnung', createdDate: '2026-09-14', correspondent: 'Deutsche Telekom AG', tags: ['Rechnung'], error: null })
   })
 })

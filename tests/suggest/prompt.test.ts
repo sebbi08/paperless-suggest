@@ -44,6 +44,7 @@ describe('buildPrompt', () => {
     expect(system.indexOf('Rechnung (120)')).toBeLessThan(system.indexOf('Versicherung (30)'))
     expect(system).not.toContain('Inbox')
     expect(system).toMatch(/propose a new one only if/i)
+    expect(system).toMatch(/created_date: the date the document was issued/i)
   })
 
   it('says (none) for an empty vocabulary', () => {
@@ -59,10 +60,12 @@ describe('buildPrompt', () => {
     const { user } = buildPrompt({
       content: 'THE DOCUMENT',
       vocabulary,
-      examples: [{ title: 'Alte Rechnung', correspondent: 'Deutsche Telekom AG', tags: ['Rechnung'], content: 'E'.repeat(2000) }],
+      examples: [
+        { title: 'Alte Rechnung', createdDate: '2026-08-14', correspondent: 'Deutsche Telekom AG', tags: ['Rechnung'], content: 'E'.repeat(2000) },
+      ],
     })
     expect(user).toContain('### Example 1')
-    expect(user).toContain('Filed as: {"title":"Alte Rechnung","correspondent":"Deutsche Telekom AG","tags":["Rechnung"]}')
+    expect(user).toContain('Filed as: {"title":"Alte Rechnung","created_date":"2026-08-14","correspondent":"Deutsche Telekom AG","tags":["Rechnung"]}')
     expect(user).not.toContain('E'.repeat(801))
     expect(user).toContain('### Document to file')
     expect(user.trimEnd().endsWith('THE DOCUMENT\n"""')).toBe(true)

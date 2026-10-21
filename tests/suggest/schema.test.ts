@@ -19,7 +19,14 @@ describe('buildSuggestionSchema', () => {
     expect(s.properties.tags.items.enum).toEqual(['Rechnung', 'Telefon/Internet', 'Versicherung', 'Müller "Bau"'])
     expect(s.properties.proposed_new_tags.maxItems).toBe(2)
     expect(s.properties.title.maxLength).toBe(TITLE_MAX)
-    expect(s.required).toEqual(['title', 'correspondent', 'proposed_new_correspondent', 'tags', 'proposed_new_tags'])
+    expect(s.required).toEqual(['title', 'created_date', 'correspondent', 'proposed_new_correspondent', 'tags', 'proposed_new_tags'])
+  })
+
+  it('asks for the issue date as YYYY-MM-DD or null', () => {
+    const s = buildSuggestionSchema(makeVocabulary()) as Json
+    expect(s.properties.created_date).toEqual({
+      anyOf: [{ type: 'string', pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }, { type: 'null' }],
+    })
   })
 
   it('allows an existing correspondent or null', () => {
@@ -56,8 +63,18 @@ describe('parseSuggestionOutput', () => {
     const r = parseSuggestionOutput(output({ title: 'Telekom Rechnung', correspondent: 'Deutsche Telekom AG', tags: ['Rechnung'] }), v)
     expect(r).toEqual({
       ok: true,
-      value: { title: 'Telekom Rechnung', correspondent: 'Deutsche Telekom AG', proposed_new_correspondent: null, tags: ['Rechnung'], proposed_new_tags: [] },
+      value: { title: 'Telekom Rechnung', created_date: null, correspondent: 'Deutsche Telekom AG', proposed_new_correspondent: null, tags: ['Rechnung'], proposed_new_tags: [] },
     })
+  })
+
+  it('keeps a valid issue date', () => {
+    const r = parseSuggestionOutput(output({ title: 'x', created_date: '2026-09-14', correspondent: null, tags: [] }), v)
+    expect(r.ok && r.value.created_date).toBe('2026-09-14')
+  })
+
+  it.each(['2026-02-30', '14.09.2026', '2026-13-01', '', 20260914])('drops an invalid issue date %j instead of failing', (date) => {
+    const r = parseSuggestionOutput(output({ title: 'x', created_date: date, correspondent: null, tags: [] }), v)
+    expect(r).toMatchObject({ ok: true, value: { created_date: null } })
   })
 
   it('round-trips names with special characters', () => {

@@ -11,6 +11,7 @@ export function toExample(doc: PaperlessDocument, v: Vocabulary): Example {
   const correspondentNames = new Map(v.correspondents.map((c) => [c.id, c.name]))
   return {
     title: doc.title,
+    createdDate: doc.created,
     correspondent: doc.correspondent === null ? null : (correspondentNames.get(doc.correspondent) ?? null),
     tags: doc.tags
       .filter((id) => id !== v.inboxTagId)

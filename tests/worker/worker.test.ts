@@ -11,18 +11,18 @@ import { makeDocument, makeVocabulary } from '../helpers/fixtures'
 
 const okResult: SuggestResult = {
   kind: 'ok',
-  suggestion: { title: 'T', correspondentId: 10, proposedCorrespondent: null, tagIds: [2], proposedTags: [], matchedNotes: {}, model: 'm' },
+  suggestion: { title: 'T', createdDate: null, correspondentId: 10, proposedCorrespondent: null, tagIds: [2], proposedTags: [], matchedNotes: {}, model: 'm' },
 }
 const online: LlmHealth = { ok: true, model: 'm' }
 const offline: LlmHealth = { ok: false, error: 'LM Studio unreachable: connect ECONNREFUSED' }
 
-function setup(healthSequence: LlmHealth[] = [online]) {
+function setup(healthSequence: LlmHealth[] = [online], opts: { llmConcurrency?: number; docCount?: number } = {}) {
   const store = new SuggestionStore(openDb(':memory:'))
   const v = makeVocabulary()
-  let docs: PaperlessDocument[] = [
-    makeDocument({ id: 1, added: '2026-09-01', content: 'first' }),
-    makeDocument({ id: 2, added: '2026-09-02', content: 'second' }),
-  ]
+  const words = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth']
+  let docs: PaperlessDocument[] = words
+    .slice(0, opts.docCount ?? 2)
+    .map((content, i) => makeDocument({ id: i + 1, added: `2026-09-0${i + 1}`, content }))
   const paperless = fakePaperless({
     listTags: vi.fn(async () => v.tags),
     listCorrespondents: vi.fn(async () => v.correspondents),
@@ -38,7 +38,16 @@ function setup(healthSequence: LlmHealth[] = [online]) {
     health: vi.fn(async () => (health.length > 1 ? health.shift()! : health[0]!)),
   }
   const suggester = { suggest: vi.fn(async (_input: SuggestInput): Promise<SuggestResult> => okResult) }
-  const worker = new Worker({ paperless, llm, suggester, store, inboxTag: null, pollIntervalSec: 300, logger: silentLogger })
+  const worker = new Worker({
+    paperless,
+    llm,
+    suggester,
+    store,
+    inboxTag: null,
+    pollIntervalSec: 300,
+    llmConcurrency: opts.llmConcurrency,
+    logger: silentLogger,
+  })
   return { store, paperless, llm, suggester, worker, setDocs: (d: PaperlessDocument[]) => (docs = d) }
 }
 
@@ -132,6 +141,70 @@ describe('Worker', () => {
     await worker.tick()
     expect(store.nextReviewable()).toBe(2)
     expect(store.nextReviewable(2)).toBeNull()
+  })
+
+  describe('with LLM_CONCURRENCY > 1', () => {
+    /** Suggestions that finish only when the test releases them. */
+    function gate(suggester: ReturnType<typeof setup>['suggester']) {
+      const waiting: { content: string; release: (r: Promise<SuggestResult>) => void }[] = []
+      let active = 0
+      let maxActive = 0
+      suggester.suggest.mockImplementation(async (input) => {
+        active++
+        maxActive = Math.max(maxActive, active)
+        try {
+          return await new Promise<Promise<SuggestResult>>((release) => waiting.push({ content: input.content, release }))
+        } finally {
+          active--
+        }
+      })
+      const started = () => waiting.map((w) => w.content)
+      const settle = async () => {
+        await vi.waitFor(() => expect(waiting.length).toBeGreaterThan(0))
+        return waiting.shift()!
+      }
+      return { started, settle, maxActive: () => maxActive }
+    }
+
+    it('suggests for up to that many documents at the same time, each exactly once', async () => {
+      const { store, suggester, worker } = setup([online], { llmConcurrency: 3, docCount: 5 })
+      const g = gate(suggester)
+      const run = worker.tick()
+      await vi.waitFor(() => expect(g.started()).toEqual(['first', 'second', 'third']))
+      for (let i = 0; i < 5; i++) (await g.settle()).release(Promise.resolve(okResult))
+      await run
+      expect(g.maxActive()).toBe(3)
+      expect(suggester.suggest.mock.calls.map((c) => c[0].content).sort()).toEqual(['fifth', 'first', 'fourth', 'second', 'third'])
+      expect(store.counts()).toMatchObject({ ready: 5, pending: 0 })
+    })
+
+    it('stops every lane once when the LLM goes down, keeping the rest pending', async () => {
+      const { store, suggester, worker } = setup([online, offline], { llmConcurrency: 2, docCount: 4 })
+      const g = gate(suggester)
+      const run = worker.tick()
+      await vi.waitFor(() => expect(g.started()).toEqual(['first', 'second']))
+      ;(await g.settle()).release(Promise.reject(new LlmError('socket hang up')))
+      ;(await g.settle()).release(Promise.reject(new LlmError('socket hang up')))
+      await run
+      expect(suggester.suggest).toHaveBeenCalledTimes(2)
+      expect(store.counts()).toMatchObject({ ready: 0, pending: 4, error: 0 })
+      expect(worker.status().llm.ok).toBe(false)
+      expect(worker.nextDelayMs()).toBe(60_000)
+    })
+
+    it('finishes suggestions already running when another lane fails', async () => {
+      const { store, suggester, worker } = setup([online, offline], { llmConcurrency: 2, docCount: 3 })
+      const g = gate(suggester)
+      const run = worker.tick()
+      await vi.waitFor(() => expect(g.started()).toEqual(['first', 'second']))
+      const [first, second] = [await g.settle(), await g.settle()]
+      first.release(Promise.reject(new LlmError('socket hang up')))
+      second.release(Promise.resolve(okResult))
+      await run
+      expect(store.get(2)?.status).toBe('ready')
+      expect(store.get(3)?.status).toBe('pending')
+      expect(suggester.suggest).toHaveBeenCalledTimes(2)
+    })
   })
 
   it('runs in the background and reacts to wake()', async () => {

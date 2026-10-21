@@ -31,7 +31,7 @@ function setup(opts: { authDisabled?: boolean; staticDir?: string | null } = {})
   store.syncInbox([{ documentId: 100, added: 'a', contentHash: 'c' }], 'v')
   store.saveResult(
     100,
-    { kind: 'ok', suggestion: { title: 'T', correspondentId: 10, proposedCorrespondent: null, tagIds: [2], proposedTags: [], matchedNotes: {}, model: 'm' } },
+    { kind: 'ok', suggestion: { title: 'T', createdDate: '2026-09-12', correspondentId: 10, proposedCorrespondent: null, tagIds: [2], proposedTags: [], matchedNotes: {}, model: 'm' } },
     { contentHash: 'c', vocabHash: 'v', docModified: doc.modified },
   )
   const app = createApp({ paperless, store, worker, auth, inboxTag: null, staticDir: opts.staticDir ?? null })
@@ -69,7 +69,8 @@ describe('API', () => {
   it('returns document detail with suggestion and vocabulary without the inbox tag', async () => {
     const { app } = setup()
     const body = (await (await app.request('/api/documents/100')).json()) as DocumentDetail
-    expect(body.document).toMatchObject({ id: 100, title: 'scan_0001', tagIds: [1] })
+    expect(body.document).toMatchObject({ id: 100, title: 'scan_0001', created: '2026-09-14', tagIds: [1] })
+    expect(body.suggestion?.createdDate).toBe('2026-09-12')
     expect(body.document.content).toContain('Telekom')
     expect(body.suggestion?.status).toBe('ready')
     expect(body.vocabulary.inboxTagId).toBe(1)

@@ -16,6 +16,8 @@ export interface DocumentDetail {
   document: {
     id: number
     title: string
+    /** Issue date as YYYY-MM-DD */
+    created: string
     content: string
     correspondentId: number | null
     tagIds: number[]

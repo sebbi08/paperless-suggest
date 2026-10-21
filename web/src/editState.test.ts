@@ -18,12 +18,18 @@ describe('initialEditState', () => {
   it('takes a ready suggestion', () => {
     expect(initialEditState(makeDetail())).toEqual({
       title: 'Telekom Rechnung 1',
+      created: '2026-09-12',
       correspondent: { kind: 'existing', id: 10 },
       tags: [
         { kind: 'existing', id: 2 },
         { kind: 'new', name: 'Mobilfunk', nearest: [{ id: 3, name: 'Telefon/Internet', score: 0.4 }] },
       ],
     })
+  })
+
+  it("keeps the document's issue date when the model found none or there is no suggestion", () => {
+    expect(initialEditState(makeDetail({ suggestion: { createdDate: null } })).created).toBe('2026-09-14')
+    expect(initialEditState(makeDetail({ suggestion: null })).created).toBe('2026-09-14')
   })
 
   it('keeps tags already on the document, without the inbox tag or duplicates', () => {
@@ -49,7 +55,7 @@ describe('initialEditState', () => {
   })
 
   it('falls back to the current document values without a ready suggestion', () => {
-    const expected = { title: 'scan_1', correspondent: { kind: 'existing', id: 11 }, tags: [{ kind: 'existing', id: 4 }] }
+    const expected = { title: 'scan_1', created: '2026-09-14', correspondent: { kind: 'existing', id: 11 }, tags: [{ kind: 'existing', id: 4 }] }
     const document = { correspondentId: 11, tagIds: [1, 4] }
     expect(initialEditState(makeDetail({ document, suggestion: { status: 'error', error: 'x' } }))).toEqual(expected)
     expect(initialEditState(makeDetail({ document, suggestion: null }))).toEqual(expected)
@@ -85,15 +91,16 @@ describe('tag operations', () => {
 
 describe('toApplyRequest / canApply', () => {
   it('maps entries to ids and names', () => {
-    const s = { title: '  T  ', correspondent: { kind: 'new' as const, name: ' Neu ', nearest: [] }, tags: [{ kind: 'existing' as const, id: 2 }, { kind: 'new' as const, name: 'X', nearest: [] }] }
-    expect(toApplyRequest(s, 'm')).toEqual({ title: 'T', correspondent: { name: 'Neu' }, tags: [{ id: 2 }, { name: 'X' }], expectedModified: 'm' })
+    const s = { title: '  T  ', created: '2026-09-12', correspondent: { kind: 'new' as const, name: ' Neu ', nearest: [] }, tags: [{ kind: 'existing' as const, id: 2 }, { kind: 'new' as const, name: 'X', nearest: [] }] }
+    expect(toApplyRequest(s, 'm')).toEqual({ title: 'T', created: '2026-09-12', correspondent: { name: 'Neu' }, tags: [{ id: 2 }, { name: 'X' }], expectedModified: 'm' })
     expect(toApplyRequest({ ...s, correspondent: null }, 'm').correspondent).toBeNull()
+    expect(toApplyRequest({ ...s, created: '' }, 'm')).not.toHaveProperty('created')
   })
 
   it('requires a title and a name for a new correspondent', () => {
-    expect(canApply({ title: 'T', correspondent: null, tags: [] })).toBe(true)
-    expect(canApply({ title: ' ', correspondent: null, tags: [] })).toBe(false)
-    expect(canApply({ title: 'T', correspondent: { kind: 'new', name: '', nearest: [] }, tags: [] })).toBe(false)
+    expect(canApply({ title: 'T', created: '', correspondent: null, tags: [] })).toBe(true)
+    expect(canApply({ title: ' ', created: '', correspondent: null, tags: [] })).toBe(false)
+    expect(canApply({ title: 'T', created: '', correspondent: { kind: 'new', name: '', nearest: [] }, tags: [] })).toBe(false)
   })
 })
 
@@ -101,7 +108,7 @@ describe('applyMissing', () => {
   it('turns deleted entries into NEW entries with their old names', () => {
     const detail = makeDetail()
     const s = applyMissing(
-      { title: 'T', correspondent: { kind: 'existing', id: 10 }, tags: [{ kind: 'existing', id: 2 }, { kind: 'existing', id: 4 }] },
+      { title: 'T', created: '', correspondent: { kind: 'existing', id: 10 }, tags: [{ kind: 'existing', id: 2 }, { kind: 'existing', id: 4 }] },
       { missingTagIds: [2], missingCorrespondentId: 10 },
       detail.vocabulary,
     )

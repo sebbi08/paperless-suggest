@@ -37,12 +37,15 @@ describe('Suggester', () => {
   })
 
   it('resolves names to ids', async () => {
-    const { llm, requests } = fakeLlm(out({ correspondent: 'Deutsche Telekom AG', tags: ['Rechnung', 'Telefon/Internet'] }))
+    const { llm, requests } = fakeLlm(
+      out({ created_date: '2026-09-14', correspondent: 'Deutsche Telekom AG', tags: ['Rechnung', 'Telefon/Internet'] }),
+    )
     const r = await make(llm).suggest(input())
     expect(r).toEqual({
       kind: 'ok',
       suggestion: {
         title: 'Telekom Rechnung',
+        createdDate: '2026-09-14',
         correspondentId: 10,
         proposedCorrespondent: null,
         tagIds: [2, 3],

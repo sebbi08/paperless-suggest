@@ -55,6 +55,7 @@ export function createApp(deps: AppDeps): Hono {
       document: {
         id: doc.id,
         title: doc.title,
+        created: doc.created,
         content: doc.content,
         correspondentId: doc.correspondent,
         tagIds: doc.tags,

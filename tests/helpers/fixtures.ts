@@ -27,7 +27,7 @@ export function makeDocument(overrides: Partial<PaperlessDocument> = {}): Paperl
     content: 'Deutsche Telekom AG\nRechnung September 2026\nBetrag 39,95 €',
     correspondent: null,
     tags: [INBOX_ID],
-    created: '2026-09-14T00:00:00+02:00',
+    created: '2026-09-14',
     added: '2026-09-14T10:00:00+02:00',
     modified: '2026-09-14T10:00:05+02:00',
     ...overrides,

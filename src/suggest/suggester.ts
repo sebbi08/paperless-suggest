@@ -77,5 +77,14 @@ export function resolveSuggestion(raw: RawSuggestion, v: Vocabulary, model: stri
     }
   }
 
-  return { title: raw.title, correspondentId, proposedCorrespondent, tagIds, proposedTags, matchedNotes, model }
+  return {
+    title: raw.title,
+    createdDate: raw.created_date,
+    correspondentId,
+    proposedCorrespondent,
+    tagIds,
+    proposedTags,
+    matchedNotes,
+    model,
+  }
 }

@@ -9,3 +9,5 @@ data/
 .tmp-data/
 test-results/
 playwright-report/
+docker-compose.yml
+.mcp.json

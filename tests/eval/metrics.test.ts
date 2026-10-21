@@ -4,15 +4,23 @@ import { checkTitle, detectLanguage, summarize, type EvalCase } from '../../src/
 const truth = (id: number, correspondentId: number, tagIds: number[]) => ({
   documentId: id,
   title: 't',
+  createdDate: '2026-09-14',
   correspondentId,
   tagIds,
   content: 'Rechnung vom 14.09.2026 für September 2026',
 })
 
-const ok = (correspondentId: number | null, tagIds: number[], proposed = 0, title = 'Telekom Rechnung September 2026') => ({
+const ok = (
+  correspondentId: number | null,
+  tagIds: number[],
+  proposed = 0,
+  title = 'Telekom Rechnung September 2026',
+  createdDate: string | null = '2026-09-14',
+) => ({
   kind: 'ok' as const,
   suggestion: {
     title,
+    createdDate,
     correspondentId,
     proposedCorrespondent: null,
     tagIds,
@@ -58,7 +66,7 @@ describe('summarize', () => {
   it('computes accuracy, micro P/R/F1, new-name and failure rates', () => {
     const cases: EvalCase[] = [
       { truth: truth(1, 10, [2, 3]), outcome: ok(10, [2]), seconds: 2 },
-      { truth: truth(2, 11, [2]), outcome: ok(10, [2, 4], 1), seconds: 4 },
+      { truth: truth(2, 11, [2]), outcome: ok(10, [2, 4], 1, undefined, '2026-09-01'), seconds: 4 },
       { truth: truth(3, 12, [5]), outcome: { kind: 'error', error: 'bad', model: 'm' }, seconds: 6 },
       { truth: truth(4, 12, [5]), outcome: { kind: 'exception', error: 'down' }, seconds: 0 },
     ]
@@ -66,6 +74,7 @@ describe('summarize', () => {
     expect(s.model).toBe('m')
     expect(s.documents).toBe(4)
     expect(s.correspondentAccuracy).toBe(0.25)
+    expect(s.dateAccuracy).toBe(0.25)
     // predicted: {2}, {2,4} -> 3; true positives: 2; truth total: 2 + 1 + 1 + 1 = 5
     expect(s.tagPrecision).toBeCloseTo(2 / 3)
     expect(s.tagRecall).toBeCloseTo(2 / 5)
@@ -78,7 +87,7 @@ describe('summarize', () => {
 
   it('handles an empty or all-failed run without NaN', () => {
     const s = summarize('m', [{ truth: truth(1, 10, [2]), outcome: { kind: 'no_text' }, seconds: 1 }])
-    expect(s).toMatchObject({ tagPrecision: 0, tagRecall: 0, tagF1: 0, newNameRate: 0, failureRate: 1, titleChecksPassRate: 0 })
+    expect(s).toMatchObject({ dateAccuracy: 0, tagPrecision: 0, tagRecall: 0, tagF1: 0, newNameRate: 0, failureRate: 1, titleChecksPassRate: 0 })
     expect(summarize('m', []).avgSeconds).toBe(0)
   })
 })
