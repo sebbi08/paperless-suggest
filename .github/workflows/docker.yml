@@ -31,7 +31,7 @@ jobs:
 
       # Pinned tags only (the deploy gateway rejects :latest): <short-sha>
       - id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
           tags: type=sha,prefix=,format=short
