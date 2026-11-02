@@ -6,5 +6,7 @@
   "lockFileMaintenance": { "enabled": false },
   "packageRules": [
     { "description": "Nie automatisch mergen", "matchPackageNames": ["*"], "automerge": false }
-  ]
+  ],
+  "npmrc": "allow-remote=all",
+  "npmrcMerge": true
 }
