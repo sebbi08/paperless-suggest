@@ -1,11 +1,13 @@
-# Runs typecheck, unit tests and build on pull requests and pushes to master.
+# Runs typecheck, unit tests and build on pull requests and on pushes to master
+# and to renovate/** (Renovate only opens a PR once its branch has checks, see
+# prCreation: not-pending).
 # The Playwright e2e tests (npm run test:e2e) are not part of this workflow.
 name: ci
 
 on:
   pull_request:
   push:
-    branches: [master]
+    branches: [master, "renovate/**"]
 
 permissions:
   contents: read
